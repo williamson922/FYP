@@ -1,0 +1,39 @@
+.dashboard {
+    font-family: Arial, sans-serif;
+    padding: 20px;
+  }
+  
+  .filter-container {
+    margin-bottom: 20px;
+  }
+  
+  .filter-button {
+    margin-left: 10px;
+  }
+  
+  .total-energy {
+    font-weight: bold;
+    margin-bottom: 20px;
+  }
+  
+  .details-heading {
+    margin-bottom: 10px;
+  }
+  
+  .energy-list {
+    list-style-type: none;
+    padding: 0;
+  }
+  
+  .energy-item {
+    margin-bottom: 5px;
+  }
+  
+  .entry-date {
+    font-weight: bold;
+  }
+  
+  .no-data {
+    font-style: italic;
+  }
+  
