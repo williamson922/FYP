@@ -1,47 +1,61 @@
-import React, {createContext,useState,useEffect} from 'react';
-import axios from 'axios';
+import React, { createContext, useState, useEffect } from "react";
+import axios from "axios";
 
 const DataContext = createContext();
-const DataProvider = ({children}) =>{
-    const [energyData,setEnergyData] = useState([]);
-    const [totalEnergy,setTotalEnergy] = useState(0);
-    const [predictedData,setPredictedData] = useState([]);
 
-    const fetchData = async() =>{
-        try {
-            const response = await axios.post('/api/bms-data');
-            setEnergyData(response.data);
-          } catch (error) {
-            console.error('Error fetching data:', error);
-          }
-    };
+const DataProvider = ({ children }) => {
+    const [energyData, setEnergyData] = useState([]);
+    const [totalEnergy, setTotalEnergy] = useState(0);
+    const [predictedData, setPredictedData] = useState([]);
+    const [isLoading, setIsLoading] = useState(true); // Add loading state
 
-    // Send data to the API for prediction and store the result in the predictedData state
-    const sendDataToAPI = async () => {
+    const fetchData = async () => {
         try {
-        const response = await axios.post('http://localhost:5000/api/predict', {
-            energyData,
-        });
-        setPredictedData(response.data);
+            const response = await axios.post("/api/bms-data");
+            console.log(response.data.data);
+            setEnergyData(response.data.data);
         } catch (error) {
-        console.error('Error sending data:', error);
+            console.error("Error fetching data:", error);
         }
     };
 
-    // Calculate the total energy consumption based on the filtered data
+    const sendDataToAPI = async () => {
+        try {
+            console.log("Sending data to API...", energyData);
+            const response = await axios.post(
+                "http://localhost:5000/api/predict",
+                {
+                    energyData,
+                }
+            );
+            setPredictedData(response.data);
+        } catch (error) {
+            console.error("Error sending data:", error);
+        }
+    };
+
     const calculateTotalEnergy = () => {
         let total = 0;
         for (let entry of energyData) {
-        total += entry.energy;
+            total += entry.energy;
         }
         setTotalEnergy(total);
     };
-
-     // Fetch data and send it to the API when the component mounts or when energyData changes
+    
     useEffect(() => {
-        sendDataToAPI();
-        calculateTotalEnergy();
-    }, [energyData]);
+        const fetchDataAndSendToAPI = async () => {
+            try {
+                await fetchData();
+                sendDataToAPI();
+                calculateTotalEnergy();
+                setIsLoading(false);
+            } catch (error) {
+                console.error("Error in API requests:", error);
+            }
+        };
+
+        fetchDataAndSendToAPI();
+    }, []);
 
     // Define the context value
     const contextValue = {
@@ -49,7 +63,15 @@ const DataProvider = ({children}) =>{
         totalEnergy,
         predictedData,
     };
-    // Render the children components with the context value
-     return <DataContext.Provider value={contextValue}>{children}</DataContext.Provider>;  
-}
+    // Show loading state until data is available
+    if (isLoading) {
+        return <div>Loading...</div>;
+    }
+    return (
+        <DataContext.Provider value={contextValue}>
+            {children}
+        </DataContext.Provider>
+    );
+};
+
 export { DataContext, DataProvider };

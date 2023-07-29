@@ -17,9 +17,9 @@ use App\Http\Controllers\HolidayController;
 |
 */
 
-Route::middleware('auth:sanctum')->get('/user', function (Request $request) {
-    return $request->user();
-});
+// Route::middleware('auth:sanctum')->get('/user', function (Request $request) {
+//     return $request->user();
+// });
 
 Route::post('/bms-data',[BMSDataController::class,'receiveData']);
 
