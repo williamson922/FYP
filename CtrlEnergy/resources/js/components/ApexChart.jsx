@@ -1,5 +1,5 @@
 import React, {useState,useContext}from "react";
-import ApexCharts from 'apexcharts';
+
 import ReactApexChart from 'react-apexcharts';
 import {DataContext} from './DataProvider';
 
@@ -45,8 +45,10 @@ import {DataContext} from './DataProvider';
     xaxis: {
       categories: ['00:00', '03:00','06:00', '09:00','12:00', '15:00','18:00', '21:00','23:59'],
       title: {
-        text: 'Hour'
-      }
+        text: 'Time'
+      },
+      min: '00:00',
+      max: '23:59'
     },
     yaxis: {
       title: {

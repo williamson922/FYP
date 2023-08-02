@@ -11,11 +11,10 @@ class BMSDataController extends Controller
     public function receiveData(Request $request)
     {
         $data = $request->all();
-        $jsonData = ['data' => [$data]]; // The data is already an array
+        $jsonData = ['data' => $data]; // The data is already an array
 
         // Make the HTTP POST request to the prediction API
         $response = Http::asJson()->post('http://localhost:5000/api/predict', $jsonData);
-
         // Check if the request was successful
         if ($response->successful()) {
             // Get the response body as JSON
