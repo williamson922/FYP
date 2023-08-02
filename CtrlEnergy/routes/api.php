@@ -21,7 +21,15 @@ use App\Http\Controllers\HolidayController;
 //     return $request->user();
 // });
 
-Route::post('/bms-data',[BMSDataController::class,'receiveData']);
+header('Access-Control-Allow-Origin:  *');
+header('Access-Control-Allow-Methods:  POST, GET, OPTIONS, PUT, DELETE');
+header('Access-Control-Allow-Headers:  Content-Type, X-Auth-Token, Origin, Authorization');
+Route::group(['middleware' => ['api']], function(){
+    Route::post('/api/bms-data',[BMSDataController::class,'receiveData']);
+    // Route::match(['GET', 'POST'], '/bms-data', [BMSDataController::class, 'receiveData']);
+
+});
+
 
 Route::post('/set-holiday',[HolidayController::class,'store'])->name('holiday.insert');
 Route::get('/holidays',[HolidayController::class,'index'])->name('holiday.showAll');
