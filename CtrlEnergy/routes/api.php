@@ -5,6 +5,7 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\MLController;
 use App\Http\Controllers\BMSDataController;
 use App\Http\Controllers\HolidayController;
+use App\Http\Controllers\QueueStatusController;
 
 /*
 |--------------------------------------------------------------------------
@@ -25,7 +26,9 @@ header('Access-Control-Allow-Origin:  *');
 header('Access-Control-Allow-Methods:  POST, GET, OPTIONS, PUT, DELETE');
 header('Access-Control-Allow-Headers:  Content-Type, X-Auth-Token, Origin, Authorization');
 Route::group(['middleware' => ['api']], function(){
-    Route::post('/api/bms-data',[BMSDataController::class,'receiveData']);
+    Route::get('/queue/status',[QueueStatusController::class,'checkQueueStatus']);
+    Route::post('/bms-data',[BMSDataController::class,'receiveDataFromBMSAndSendToAPI']);
+    Route::get('/api-data',[BMSDataController::class,'receiveDataFromAPIAndSendToWeb']);
     // Route::match(['GET', 'POST'], '/bms-data', [BMSDataController::class, 'receiveData']);
 
 });

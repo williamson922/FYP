@@ -204,7 +204,7 @@ def predict_day_ahead_load(preprocessed_data, model_to_use):
         raise e
     
 
-def predict_next_48_points(model, historical_data, look_back=48):
+def predict_next_48_points(model, historical_data,datetime, look_back=48):
     # Extract the last date in the historical_data to create the datetime index for predictions
     last_date = historical_data["Date/Time"].iloc[-1]
     historical_data = historical_data.drop(columns=['Date/Time', 'Total Power'])
@@ -220,10 +220,9 @@ def predict_next_48_points(model, historical_data, look_back=48):
     
     # Initialize an empty list to store the predicted data points
     predicted_list = []
-    
     # Generate the datetime index for the next 48 data points (1 day ahead)
-    datetime_index = pd.date_range(last_date + pd.Timedelta(minutes=30), periods=48, freq="30T")
-
+    today = pd.date_range(datetime.iloc[0],periods=48,freq='30T').strftime('%d-%m-%Y %H:%M')
+    print(today)
     for data in seed_data:
         data_reshaped = data.reshape((1, 1, 10))
         predicted_data = model.predict(data_reshaped)
@@ -232,9 +231,9 @@ def predict_next_48_points(model, historical_data, look_back=48):
 
     # Convert the list of predicted data points into a numpy array
     predicted_array = np.array(predicted_list)
-    print(predicted_array)
+    print(len(predicted_array))
     # Create a DataFrame to hold the predicted data for the entire day
-    predicted_df = pd.DataFrame({"Date/Time": datetime_index, "Predicted Load": predicted_array})
+    predicted_df = pd.DataFrame({"Date/Time": today, "Predicted Load": predicted_array})
 
     return predicted_df
 
@@ -317,13 +316,15 @@ def predict():
         
         # Get the last weekend's data from the database
         last_48_data = get_data_for_model(preprocessed_data["Date/Time"].iloc[0])
-        preprocessed_data = pd.concat([last_48_data,preprocessed_data])
-        preprocessed_df = pd.DataFrame(preprocessed_data,columns=required_features)
+        preprocessed_df = pd.DataFrame(last_48_data,columns=required_features)
+        #Change the format of the date of actual preprocessed_data)
+        preprocessed_data['Date/Time'] = pd.to_datetime(preprocessed_data['Date/Time']).dt.strftime("%d-%m-%Y %H:%M")
         # Use the predict_next_48_points method to make predictions
-        predictions_df = predict_next_48_points(model_to_use, preprocessed_df)
+        predictions_df = predict_next_48_points(model_to_use, preprocessed_df,preprocessed_data['Date/Time'])
         
         # Return the predicted data in the JSON response
-        return jsonify({"data": predictions_df.to_dict(orient="records")}), 200
+        return jsonify({"predicted_data": predictions_df.to_dict(orient="records"),
+                        'actual_data':preprocessed_data.to_dict(orient='records')}), 200
 
     except Exception as e:
         # Log the full traceback

@@ -13,6 +13,7 @@
         "laravel/tinker": "^2.8",
         "nesbot/carbon": "^2.68",
         "php-ai/php-ml": "^0.10.0",
+        "predis/predis": "^2.2",
         "rubix/ml": "^2.4"
     },
     "require-dev": {

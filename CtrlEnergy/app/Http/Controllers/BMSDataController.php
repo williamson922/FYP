@@ -5,27 +5,50 @@ namespace App\Http\Controllers;
 use DateTime;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
-
+use App\Jobs\ReceiveAPIData;
+use App\Models\APIData;
 class BMSDataController extends Controller
 {
-    public function receiveData(Request $request)
+    private $cachedData ;
+
+    public function receiveDataFromBMSAndSendToAPI(Request $request)
     {
         $data = $request->all();
-        $jsonData = ['data' => $data]; // The data is already an array
+        $validatedData= $this->validateAndConvertNumericData($data);
+        $jsonData = ['data' => $validatedData]; // The data is already an array
 
         // Make the HTTP POST request to the prediction API
         $response = Http::asJson()->post('http://localhost:5000/api/predict', $jsonData);
         // Check if the request was successful
         if ($response->successful()) {
-            // Get the response body as JSON
-            $responseData = $response->json();
-
-            return response()->json(['message' => 'Data received and processed successfully', 'response' => $responseData]);
+            $apiData= $response->json();
+            ReceiveAPIData::dispatch($apiData)->afterCommit();
+            return response()->json(["message" => "Data received successfully and processed successfully"]);
         } else {
-
             // Request was not successful, return an error response
             return response()->json(['error' => 'Failed to process data'], $response->status());
         }
+    }
+    public function receiveDataFromAPIAndSendToWeb(){
+    // Extract the data from the response
+        $predictedData = $this->cachedData['predicted_data'];
+        $actualData = $this->cachedData['actual_data'];
+        return response()->json(["predicted_data" => $predictedData, "actual_data" => $actualData]);
+    }
+    private function validateAndConvertNumericData(array $data)
+    {
+        $validatedData = [];
+        foreach ($data as $key => $value) {
+            // Check if the value is numeric (float or integer)
+            if (is_numeric($value)) {
+                $validatedData[$key] = (float) $value; // Convert to float
+            } else {
+                // Keep non-numeric values as they are
+                $validatedData[$key] = $value;
+            }
+        }
+
+        return $validatedData;
     }
 }
 
