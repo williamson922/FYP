@@ -6,15 +6,14 @@ import io from 'socket.io-client';
 const DataContext = createContext();
 
 const DataProvider = ({ children }) => {
-    const [energyData, setEnergyData] = useState([
-    {"Date/Time": "12/22/2021 00:00 AM",
-    "Voltage Ph-A Avg": 246.91,
-    "Voltage Ph-B Avg": 248.37,
-    "Voltage Ph-C Avg": 246.88,
-    "Current Ph-A Avg": 7.47,
-    "Current Ph-B Avg": 4.44,
-    "Current Ph-C Avg": 4.53,
-    "Power Factor Total": 1}]);
+                                                      //{"Date/Time": "12/22/2021 00:00 AM",
+                                                      // "Voltage Ph-A Avg": 246.91,
+                                                      // "Voltage Ph-B Avg": 248.37,
+                                                      // "Voltage Ph-C Avg": 246.88,
+                                                      // "Current Ph-A Avg": 7.47,
+                                                      // "Current Ph-B Avg": 4.44,
+                                                      // "Current Ph-C Avg": 4.53,
+    const [energyData, setEnergyData] = useState([]); // "Power Factor Total": 1}
     const [totalEnergy, setTotalEnergy] = useState(0.0);
     const [predictedData, setPredictedData] = useState([]);
     const [actualData, setActualData] = useState([]);
