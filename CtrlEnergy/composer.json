@@ -14,6 +14,7 @@
         "nesbot/carbon": "^2.68",
         "php-ai/php-ml": "^0.10.0",
         "predis/predis": "^2.2",
+        "pusher/pusher-php-server": "^7.2",
         "rubix/ml": "^2.4"
     },
     "require-dev": {

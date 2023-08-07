@@ -30,7 +30,7 @@ def simulate_outside_system():
         response = requests.post(url, json=[data])  # Use requests.post for POST requests
         if response.status_code == 200:
             print('Response from the web application:')
-            print(response.json())  # Assuming the response is in JSON format
+            print(response)  # Assuming the response is in JSON format
         else:
             print(f'Request failed with status code: {response.status_code}')
     except requests.exceptions.RequestException as e:

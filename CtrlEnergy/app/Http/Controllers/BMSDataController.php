@@ -7,13 +7,13 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
 use App\Jobs\ReceiveAPIData;
 use App\Models\APIData;
+use App\Events\receiveAPIDataEvent;
 class BMSDataController extends Controller
 {
-    private $cachedData ;
-
     public function receiveDataFromBMSAndSendToAPI(Request $request)
     {
         $data = $request->all();
+        phpinfo();
         $validatedData= $this->validateAndConvertNumericData($data);
         $jsonData = ['data' => $validatedData]; // The data is already an array
 
@@ -22,18 +22,13 @@ class BMSDataController extends Controller
         // Check if the request was successful
         if ($response->successful()) {
             $apiData= $response->json();
-            ReceiveAPIData::dispatch($apiData)->afterCommit();
+            // ReceiveAPIData::dispatch($apiData)->afterCommit();
+            event(new receiveAPIDataEvent($apiData));
             return response()->json(["message" => "Data received successfully and processed successfully"]);
         } else {
             // Request was not successful, return an error response
             return response()->json(['error' => 'Failed to process data'], $response->status());
         }
-    }
-    public function receiveDataFromAPIAndSendToWeb(){
-    // Extract the data from the response
-        $predictedData = $this->cachedData['predicted_data'];
-        $actualData = $this->cachedData['actual_data'];
-        return response()->json(["predicted_data" => $predictedData, "actual_data" => $actualData]);
     }
     private function validateAndConvertNumericData(array $data)
     {

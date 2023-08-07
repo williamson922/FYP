@@ -1,5 +1,7 @@
 import React, { createContext, useState, useEffect } from "react";
 import axios from "axios";
+import Echo from 'laravel-echo';
+import io from 'socket.io-client';
 
 const DataContext = createContext();
 
@@ -18,51 +20,30 @@ const DataProvider = ({ children }) => {
     const [actualData, setActualData] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState(null); // Add error state
-  
-    useEffect(()=>{
-      const checkQueueStatus = async() =>{
-        try{
-          const response = await axios.get('/api/queue/status');
-          const hasPendingJobs =response.data.has_pending_jobs;
-          if(hasPendingJobs){
-            fetchData();
-          } else {
-            // Queue is empty, handle the case when no data is available
-            console.log('Queue is empty')
-          }
-        } catch (error){
-          console.error('Error checking queue status', error);
-        }
-      }
-      const fetchData = async () => {
-            try {
-              const response = await axios.get("/api/api-data");
-              setPredictedData(response.data.predictedData);
-              setActualData(response.data.actualData);
-            } catch (error) {
-              console.error("Error fetching data:", error);
-              setError("Error fetching data. Please try again later.");
-            } finally {
-              setIsLoading(false);
-            }
-          };
-      const interval = setInterval(checkQueueStatus, 5000);
+    
+    useEffect(() => {
+      Pusher.logToConsole =true;
 
-    // Clear the interval when the component unmounts to avoid memory leaks
-        return () => clearInterval(interval); 
-    // end of useEffect
+    var pusher = new Pusher(import.meta.env.VITE_PUSHER_APP_KEY, {
+      cluster: import.meta.env.VITE_PUSHER_APP_CLUSTER,
+      forceTLS: true,
     });
+
+    var channel = pusher.subscribe('public-channel');
+    channel.bind('event_apidata', function(data) {
+      setPredictedData(data.data.predicted_data);
+      setActualData(data.data.actual_data);
+      setIsLoading(false);
+    });
+    },[]);
     
-    
-  
     const calculateTotalEnergy = () => {
       let total = 0;
       for (let entry of actualData) {
-        total += entry['Total Power'].toFixed(2);
+        total += entry['Total Power'];
       }
-      setTotalEnergy(total);
+      setTotalEnergy((total/1000).toFixed(2));
     };
-  
   
     // Calculate total energy whenever actualData changes
     useEffect(() => {
