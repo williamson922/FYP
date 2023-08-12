@@ -20,6 +20,18 @@ const DataProvider = ({ children }) => {
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState(null); // Add error state
     
+
+     // Set a timeout to update isLoading to false if no data arrives within 10 seconds
+  useEffect(() => {
+    const timeout = setTimeout(() => {
+      setIsLoading(false);
+    }, 5000); // 10 seconds
+    
+    return () => {
+      clearTimeout(timeout); // Clear the timeout when the component unmounts
+    };
+  }, []);
+
     useEffect(() => {
       Pusher.logToConsole =true;
 

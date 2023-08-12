@@ -2,26 +2,24 @@
 
 namespace App\Http\Controllers;
 
-use DateTime;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
-use App\Jobs\ReceiveAPIData;
-use App\Models\APIData;
 use App\Events\receiveAPIDataEvent;
+
 class BMSDataController extends Controller
 {
     public function receiveDataFromBMSAndSendToAPI(Request $request)
     {
         $data = $request->all();
         phpinfo();
-        $validatedData= $this->validateAndConvertNumericData($data);
+        $validatedData = $this->validateAndConvertNumericData($data);
         $jsonData = ['data' => $validatedData]; // The data is already an array
 
         // Make the HTTP POST request to the prediction API
         $response = Http::asJson()->post('http://localhost:5000/api/predict', $jsonData);
         // Check if the request was successful
         if ($response->successful()) {
-            $apiData= $response->json();
+            $apiData = $response->json();
             // ReceiveAPIData::dispatch($apiData)->afterCommit();
             event(new receiveAPIDataEvent($apiData));
             return response()->json(["message" => "Data received successfully and processed successfully"]);
@@ -46,4 +44,3 @@ class BMSDataController extends Controller
         return $validatedData;
     }
 }
-
