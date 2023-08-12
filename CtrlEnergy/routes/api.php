@@ -33,6 +33,7 @@ Route::group(['middleware' => ['api']], function () {
 
 });
 
+Route::post('/get-data', [BMSDataController::class, 'getTodayData'])->name('data.today');
 
 Route::post('/set-holiday', [HolidayController::class, 'create'])->name('holiday.insert');
 Route::post('/holiday', [HolidayController::class, 'destroy'])->name('holiday.delete');

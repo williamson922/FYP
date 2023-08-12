@@ -67,26 +67,21 @@ def load_svr_model(model_type, version):
 
 def save_data_database(data):
     try:
-        preprocessed_data = preprocess_data(data)
+        # Extract the required columns from the preprocessed_data DataFrame
+        values = data[required_features].values.tolist()
 
-        # Convert the "Date/Time" column to the desired MySQL datetime format
-        preprocessed_data["Date/Time"] = pd.to_datetime(preprocessed_data["Date/Time"], infer_datetime_format=True)
-        preprocessed_data["Date/Time"] = preprocessed_data["Date/Time"].dt.strftime('%Y-%m-%d %H:%M:%S')
+        # Define the INSERT query
+        query = "INSERT INTO Energy_Data (`Date/Time`, `Voltage Ph-A Avg`, `Voltage Ph-B Avg`, `Voltage Ph-C Avg`, `Current Ph-A Avg`, `Current Ph-B Avg`, `Current Ph-C Avg`, `Power Factor Total`, `Power Ph-A`, `Power Ph-B`, `Power Ph-C`, `Total Power`, `Unix Timestamp`) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)"
 
-        # Iterate over the rows of the DataFrame and insert each row into the database
-        for index, row in preprocessed_data.iterrows():
-            values = tuple(row[required_features])
-            query = "INSERT INTO Energy_Data (`Date/Time`, `Voltage Ph-A Avg`, `Voltage Ph-B Avg`, `Voltage Ph-C Avg`, `Current Ph-A Avg`, `Current Ph-B Avg`, `Current Ph-C Avg`, `Power Factor Total`, `Power Ph-A`, `Power Ph-B`, `Power Ph-C`, `Total Power`) VALUES (%s, %s, %s, %s, %s, %s, %s,%s, %s, %s, %s, %s)"
-            cursor.execute(query, values)
+        # Execute the INSERT query with the list of values
+        cursor.executemany(query, values)
 
         connection.commit()
 
     except Exception as e:
         connection.rollback()
         raise ValueError("Error saving data to database: " + str(e))
-    finally:
-        cursor.close()
-        connection.close()
+
 
 def get_model_for_date(date, version):
     if date.weekday() < 5:
@@ -159,41 +154,41 @@ def get_data_for_model(date):
     else:
         return None
     
-def predict_next_48_points(model, historical_data,datetime, look_back=48):
+def predict_next_48_points(model, historical_data, datetime, look_back=48):
     # Extract the last date in the historical_data to create the datetime index for predictions
-  
     historical_data = historical_data.drop(columns=['Date/Time', 'Total Power'])
-    print(historical_data)
 
     # Use the last 'look_back' data points from the historical_data as the seed for prediction
     seed_data = historical_data[-look_back:]
-    print(seed_data)
     
     # Initialize an empty list to store the predicted data points
+    predicted_array = []
+
     # Generate the datetime index for the next 48 data points (1 day ahead)
-    today = pd.date_range(datetime.iloc[0],periods=48,freq='30T').strftime('%d-%m-%Y %H:%M')
-    print(model)
+    today = pd.date_range(datetime.iloc[0], periods=48, freq='30T').strftime('%d-%m-%Y %H:%M')
+
     # Call the appropriate prediction method based on the model type
     if isinstance(model, keras.models.Sequential):
         scaler_x_path = './scaler/LSTM/lstm_scaler_x.pkl'
         scaler_y_path = './scaler/LSTM/lstm_scaler_y.pkl'
         predicted_array = predict_lstm_model(model, seed_data, scaler_x_path, scaler_y_path)
-    elif isinstance(model, sklearn.svm.SVR):
+    elif isinstance(model, svm.SVR):
         scaler_x_path = './scaler/SVR/svr_scaler_x.pkl'
         scaler_y_path = './scaler/SVR/svr_scaler_y.pkl'
         predicted_array = predict_svr_model(model, seed_data, scaler_x_path, scaler_y_path)
     else:
         raise ValueError('Invalid model type: %s', model)
-    
+
     # Convert the list of predicted data points into a numpy array
     predicted_array = np.array(predicted_array)
     if len(predicted_array) == len(today):
         # Create a DataFrame to hold the predicted data for the entire day
-        predicted_df = pd.DataFrame({"Predicted Load": predicted_array}, index=today)
+        predicted_df = pd.DataFrame({"Date/Time": today, "Predicted Load": predicted_array})
     else:
         raise ValueError("Length of predicted_array does not match length of today")
 
     return predicted_df
+
 def predict_lstm_model(model, seed_data, scaler_x_path, scaler_y_path):
     predicted_list = []
     scaler_x=joblib.load(scaler_x_path)
@@ -271,16 +266,15 @@ def predict():
                 data = pd.DataFrame(input_data,columns=required_features)
                 
             else:
-                # 'data' key is either not present or empty
                 # Return a response or error message as needed
                 return jsonify({"error": "No data"}), 200
             print("DF:", data)
             # Preprocess the data
             preprocessed_data = preprocess_data(data)
-        
+            
+        save_data_database(preprocessed_data)    
         # Extract the date from the timestamp and convert to datetime object
         preprocessed_data["Date/Time"] = pd.to_datetime(preprocessed_data["Date/Time"])
-        print("Preprocessed:",preprocessed_data)
     
         # Get the desired model version from the request parameters
         version = request.args.get("version")

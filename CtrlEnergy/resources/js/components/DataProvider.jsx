@@ -41,13 +41,34 @@ const DataProvider = ({ children }) => {
     });
 
     var channel = pusher.subscribe('public-channel');
-    channel.bind('event_apidata', function(data) {
+    channel.bind('event_apidata', async function(data) {
+      console.log("Before:", data.data.predicted_data);
       setPredictedData(data.data.predicted_data);
-      setActualData(data.data.actual_data);
       setIsLoading(false);
     });
     },[]);
+
+    useEffect(() => {
+      // This effect will run whenever predictedData changes
+      if (predictedData.length > 0) {
+        const fetchData = async () => {
+          try {
+            const response = await axios.post("api/get-data", { date: predictedData[0]['Date/Time'] });
+            setActualData(response.data);
+            setIsLoading(false);
+          } catch (error) {
+            console.error(error);
+            setIsLoading(false);
+          }
+        };
+        fetchData();
+      }
+    }, [predictedData]);
     
+    if(actualData.length>0){
+      console.log("After channel Actual:");
+      console.log(actualData.map(entry => (entry['Total Power']/1000).toFixed(2)));
+      }
     const calculateTotalEnergy = () => {
       let total = 0;
       for (let entry of actualData) {
@@ -91,5 +112,3 @@ const DataProvider = ({ children }) => {
   };
   
   export { DataContext, DataProvider };
-
-

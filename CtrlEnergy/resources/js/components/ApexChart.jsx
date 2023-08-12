@@ -6,6 +6,16 @@ import {DataContext} from './DataProvider';
   const ApexChart = () => {
 
   const {predictedData,actualData} = useContext(DataContext);
+  // Format the x-axis labels to show only the hour
+  const xAxisLabelsFormatted = actualData.map(entry => {
+    const dateTime = entry["Date/Time"];
+    if (dateTime) {
+      return new Date(dateTime).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+    }
+    return "";
+  });
+
+  const chartTitle = actualData.length > 0 ? new Date(actualData[0]["Date/Time"]).toLocaleDateString() : "";
   const [chartOptions, setChartOptions] = useState({
     chart: {
       height: 350,
@@ -19,8 +29,12 @@ import {DataContext} from './DataProvider';
         opacity: 0.2
       },
       toolbar: {
-        show: false
-      }
+        show: true,
+        tools:{
+          download:false,
+        },
+        autoSelected:"zoom",
+      },
     },
     colors: ['#77B6EA', '#545454'],
     dataLabels: {
@@ -30,8 +44,8 @@ import {DataContext} from './DataProvider';
       curve: 'smooth'
     },
     title: {
-      text: 'Energy Usage',
-      align: 'left'
+      text: chartTitle,
+      align: 'center'
     },
     grid: {
       borderColor: '#e7e7e7',
@@ -44,21 +58,13 @@ import {DataContext} from './DataProvider';
       size: 1
     },
     xaxis: {
-      // categories: ['00:00', '03:00','06:00', '09:00','12:00', '15:00','18:00', '21:00','23:59'],
-      title: {
-        text: 'Time'
+      type: "category",
+      categories: xAxisLabelsFormatted,
+      labels: {
+        formatter: function (value) {
+          return value; // Simply return the formatted time label
+        },
       },
-      type: 'category',
-      categories: [
-      '00:00', '00:30', '01:00', '01:30', '02:00', '02:30',
-      '03:00', '03:30', '04:00', '04:30', '05:00', '05:30',
-      '06:00', '06:30', '07:00', '07:30', '08:00', '08:30',
-      '09:00', '09:30', '10:00', '10:30', '11:00', '11:30',
-      '12:00', '12:30', '13:00', '13:30', '14:00', '14:30',
-      '15:00', '15:30', '16:00', '16:30', '17:00', '17:30',
-      '18:00', '18:30', '19:00', '19:30', '20:00', '20:30',
-      '21:00', '21:30', '22:00', '22:30', '23:00', '23:30',
-    ],
     },
     yaxis: {
       title: {
@@ -85,26 +91,16 @@ import {DataContext} from './DataProvider';
       offsetX: -5
     }
   });
-
-  const [chartSeries, setChartSeries] = useState([
-  //   {
-  //     name: 'Actual',
-  //     data: [28, 29, 33, 36, 32, 32, 33]
-  //   },
-  //   {
-  //     name: 'Predicted',
-  //     data: [12, 11, 14, 18, 17, 13, 13, 36, 32, 32, 33]
-  //   }
-  // ]);
-  {
-    name: 'Actual',
-    data: actualData.map(entry => (entry['Total Power']/1000).toFixed(2))
-  },
-  {
-    name: 'Predicted',
-    data: predictedData.map(entry => (entry['Predicted Load']/1000).toFixed(2))
-  }
-]);
+  const chartSeries = [
+    {
+      name: "Actual",
+      data: actualData.map(entry => (entry["Total Power"] / 1000).toFixed(2)),
+    },
+    {
+      name: "Predicted",
+      data: predictedData.map(entry => (entry["Predicted Load"] / 1000).toFixed(2)),
+    },
+  ];
 
   return (
     <div id="chart">

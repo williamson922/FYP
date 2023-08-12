@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
 use App\Events\receiveAPIDataEvent;
+use App\Models\EnergyData;
 
 class BMSDataController extends Controller
 {
@@ -42,5 +43,14 @@ class BMSDataController extends Controller
         }
 
         return $validatedData;
+    }
+    public function getTodayData(Request $request)
+    {
+        $dateOnly = date('Y-m-d', strtotime($request->input('date'))); // Extract the date part
+
+        $energy_data = EnergyData::whereRaw("DATE(`Date/Time`) = ?", [$dateOnly])
+            ->get();
+
+        return response()->json($energy_data);
     }
 }
