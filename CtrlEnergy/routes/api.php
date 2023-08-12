@@ -25,14 +25,15 @@ use App\Http\Controllers\QueueStatusController;
 header('Access-Control-Allow-Origin:  *');
 header('Access-Control-Allow-Methods:  POST, GET, OPTIONS, PUT, DELETE');
 header('Access-Control-Allow-Headers:  Content-Type, X-Auth-Token, Origin, Authorization');
-Route::group(['middleware' => ['api']], function(){
-    Route::get('/queue/status',[QueueStatusController::class,'checkQueueStatus']);
-    Route::post('/bms-data',[BMSDataController::class,'receiveDataFromBMSAndSendToAPI']);
-    Route::get('/api-data',[BMSDataController::class,'receiveDataFromAPIAndSendToWeb']);
+Route::group(['middleware' => ['api']], function () {
+    Route::get('/queue/status', [QueueStatusController::class, 'checkQueueStatus']);
+    Route::post('/bms-data', [BMSDataController::class, 'receiveDataFromBMSAndSendToAPI']);
+    Route::get('/api-data', [BMSDataController::class, 'receiveDataFromAPIAndSendToWeb']);
     // Route::match(['GET', 'POST'], '/bms-data', [BMSDataController::class, 'receiveData']);
 
 });
 
 
-Route::post('/set-holiday',[HolidayController::class,'store'])->name('holiday.insert');
-Route::get('/holidays',[HolidayController::class,'index'])->name('holiday.showAll');
+Route::post('/set-holiday', [HolidayController::class, 'create'])->name('holiday.insert');
+Route::post('/holiday', [HolidayController::class, 'destroy'])->name('holiday.delete');
+Route::get('/holidays', [HolidayController::class, 'index'])->name('holiday.showAll');

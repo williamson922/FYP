@@ -13,6 +13,8 @@ import traceback
 import logging
 from sklearn.preprocessing import MinMaxScaler
 import datetime
+import keras
+import sklearn
 from db_connector import get_database_connection
 
 app = Flask(__name__)
@@ -22,7 +24,7 @@ cursor = connection.cursor()
 
 # Define the required features for the model
 required_features = ["Date/Time", "Voltage Ph-A Avg", "Voltage Ph-B Avg", "Voltage Ph-C Avg", "Current Ph-A Avg", "Current Ph-B Avg", "Current Ph-C Avg"
-                     ,"Power Factor Total","Power Ph-A","Power Ph-B","Power Ph-C", "Total Power"]
+                     ,"Power Factor Total","Power Ph-A","Power Ph-B","Power Ph-C", "Total Power","Unix Timestamp"]
 
 def load_lstm_model(version):
     # weekday model folder path
@@ -112,7 +114,7 @@ def is_holiday(date):
     
 
 def preprocess_data(data, method='locf'):
-    
+    data['Date/Time'] = pd.to_datetime(data['Date/Time'])
     try:
         # Handle missing values
         if method == 'locf' and data.isnull().any().any():
@@ -139,13 +141,14 @@ def add_features(data):
     data['Power Ph-C'] = data['Voltage Ph-C Avg'] * \
         data['Current Ph-C Avg'] * abs(data['Power Factor Total'])
     data['Total Power'] = data['Power Ph-A'] + data['Power Ph-B'] + data['Power Ph-C']
+    data['Unix Timestamp'] = data['Date/Time'].apply(lambda dt: (dt - pd.Timestamp("2020-01-01")) // pd.Timedelta('1s'))
     return data
 
 def get_data_for_model(date):
     if date.weekday() >=5:
-        query = "SELECT `Date/Time`, `Voltage Ph-A Avg`, `Voltage Ph-B Avg`, `Voltage Ph-C Avg`, `Current Ph-A Avg`, `Current Ph-B Avg`, `Current Ph-C Avg`, `Power Factor Total`, `Power Ph-A`, `Power Ph-B`, `Power Ph-C`, `Total Power` FROM Energy_Data WHERE `Date/Time` BETWEEN (SELECT MAX(`Date/Time`) FROM Energy_Data WHERE WEEKDAY(`Date/Time`) = 5) AND (SELECT MAX(`Date/Time`) FROM Energy_Data WHERE WEEKDAY(`Date/Time`) = 6) ORDER BY `Date/Time` DESC LIMIT 48"
+        query = "SELECT `Date/Time`, `Voltage Ph-A Avg`, `Voltage Ph-B Avg`, `Voltage Ph-C Avg`, `Current Ph-A Avg`, `Current Ph-B Avg`, `Current Ph-C Avg`, `Power Factor Total`, `Power Ph-A`, `Power Ph-B`, `Power Ph-C`, `Total Power`,`Unix Timestamp` FROM Energy_Data WHERE `Date/Time` BETWEEN (SELECT MAX(`Date/Time`) FROM Energy_Data WHERE WEEKDAY(`Date/Time`) = 5) AND (SELECT MAX(`Date/Time`) FROM Energy_Data WHERE WEEKDAY(`Date/Time`) = 6) ORDER BY `Date/Time` DESC LIMIT 48"
     elif date.weekday() < 5:
-        query = "SELECT `Date/Time`, `Voltage Ph-A Avg`, `Voltage Ph-B Avg`, `Voltage Ph-C Avg`, `Current Ph-A Avg`, `Current Ph-B Avg`, `Current Ph-C Avg`, `Power Factor Total`, `Power Ph-A`, `Power Ph-B`, `Power Ph-C`, `Total Power` FROM Energy_Data WHERE `Date/Time` BETWEEN (SELECT MAX(`Date/Time`) FROM Energy_Data WHERE WEEKDAY(`Date/Time`) = 5) AND (SELECT MAX(`Date/Time`) FROM Energy_Data WHERE WEEKDAY(`Date/Time`) = 6) ORDER BY `Date/Time` DESC LIMIT 48"
+        query = "SELECT `Date/Time`, `Voltage Ph-A Avg`, `Voltage Ph-B Avg`, `Voltage Ph-C Avg`, `Current Ph-A Avg`, `Current Ph-B Avg`, `Current Ph-C Avg`, `Power Factor Total`, `Power Ph-A`, `Power Ph-B`, `Power Ph-C`, `Total Power`,`Unix Timestamp` FROM Energy_Data WHERE `Date/Time` BETWEEN (SELECT MAX(`Date/Time`) FROM Energy_Data WHERE WEEKDAY(`Date/Time`) = 5) AND (SELECT MAX(`Date/Time`) FROM Energy_Data WHERE WEEKDAY(`Date/Time`) = 6) ORDER BY `Date/Time` DESC LIMIT 48"
     print(query)
     cursor.execute(query)
     data = cursor.fetchall()
@@ -155,87 +158,70 @@ def get_data_for_model(date):
         return pd.DataFrame(data, columns=required_features)
     else:
         return None
-
-def predict_day_ahead_load(preprocessed_data, model_to_use):
-    try:
-        
-        # Extract the date of the first data point
-        first_date = preprocessed_data["Date/Time"].iloc[0]
-
-        # Generate the datetime index for the entire day (48 data points)
-        datetime_index = pd.date_range(first_date, periods=48, freq="30T")
-        
-        # Create an empty list to store the predictions
-        y_pred_list = []
-
-        # Predict for each data point in the datetime index
-        for timestamp in datetime_index:
-            # Find the row index corresponding to the current timestamp
-            row_index = preprocessed_data.index[preprocessed_data["Date/Time"] == timestamp].tolist()
-
-            if not row_index:
-                # Handle the case when row_index is empty
-                # You can decide to skip the prediction or use a default value for prediction
-                # For now, we'll skip the prediction and continue to the next timestamp
-                continue
-            # if row_index:
-            # Extract the relevant features for prediction
-            feature_order = ["Voltage Ph-A Avg", "Voltage Ph-B Avg", "Voltage Ph-C Avg",
-                            "Current Ph-A Avg", "Current Ph-B Avg", "Current Ph-C Avg",
-                            "Power Factor Total", "Power Ph-A", "Power Ph-B", "Power Ph-C"]
-            X_test_single = preprocessed_data[feature_order].iloc[row_index].values
-
-            # Predict for the current data point
-            y_pred_single = model_to_use.predict(X_test_single)
-            # Append the predicted value to the y_pred_list
-            y_pred_list.append(y_pred_single)
-
-        # Check if the predictions list has exactly 48 elements
-        if len(y_pred_list) != 48:
-            raise ValueError("Prediction list does not have 48 elements")
-
-        # Create a DataFrame to hold the predicted data for the entire day
-        predicted_data_df = pd.DataFrame({"Date/Time": datetime_index, "Total Power": y_pred_list})
-
-        return predicted_data_df
-
-    except Exception as e:
-        logging.error("Error during prediction: %s", e)
-        raise e
     
-
 def predict_next_48_points(model, historical_data,datetime, look_back=48):
     # Extract the last date in the historical_data to create the datetime index for predictions
-    last_date = historical_data["Date/Time"].iloc[-1]
+  
     historical_data = historical_data.drop(columns=['Date/Time', 'Total Power'])
     print(historical_data)
-    # Normalize the historical data using the same scaler used during training
-    scaler = joblib.load('./scaler/lstm_scaler.pkl')
-    historical_data_scaled = scaler.transform(historical_data)  # Use transform instead of fit_transform
-    print(historical_data_scaled)
 
     # Use the last 'look_back' data points from the historical_data as the seed for prediction
-    seed_data = historical_data_scaled[-look_back:]
+    seed_data = historical_data[-look_back:]
     print(seed_data)
     
     # Initialize an empty list to store the predicted data points
-    predicted_list = []
     # Generate the datetime index for the next 48 data points (1 day ahead)
     today = pd.date_range(datetime.iloc[0],periods=48,freq='30T').strftime('%d-%m-%Y %H:%M')
-    print(today)
-    for data in seed_data:
-        data_reshaped = data.reshape((1, 1, 10))
-        predicted_data = model.predict(data_reshaped)
-        print(predicted_data)
-        predicted_list.append(predicted_data[0][0])  # Append the predicted value instead of the array
-
+    print(model)
+    # Call the appropriate prediction method based on the model type
+    if isinstance(model, keras.models.Sequential):
+        scaler_x_path = './scaler/LSTM/lstm_scaler_x.pkl'
+        scaler_y_path = './scaler/LSTM/lstm_scaler_y.pkl'
+        predicted_array = predict_lstm_model(model, seed_data, scaler_x_path, scaler_y_path)
+    elif isinstance(model, sklearn.svm.SVR):
+        scaler_x_path = './scaler/SVR/svr_scaler_x.pkl'
+        scaler_y_path = './scaler/SVR/svr_scaler_y.pkl'
+        predicted_array = predict_svr_model(model, seed_data, scaler_x_path, scaler_y_path)
+    else:
+        raise ValueError('Invalid model type: %s', model)
+    
     # Convert the list of predicted data points into a numpy array
-    predicted_array = np.array(predicted_list)
-    print(len(predicted_array))
-    # Create a DataFrame to hold the predicted data for the entire day
-    predicted_df = pd.DataFrame({"Date/Time": today, "Predicted Load": predicted_array})
+    predicted_array = np.array(predicted_array)
+    if len(predicted_array) == len(today):
+        # Create a DataFrame to hold the predicted data for the entire day
+        predicted_df = pd.DataFrame({"Predicted Load": predicted_array}, index=today)
+    else:
+        raise ValueError("Length of predicted_array does not match length of today")
 
     return predicted_df
+def predict_lstm_model(model, seed_data, scaler_x_path, scaler_y_path):
+    predicted_list = []
+    scaler_x=joblib.load(scaler_x_path)
+    scaler_y = joblib.load(scaler_y_path)
+    seed_data_scaled = scaler_x.transform(seed_data)
+    
+    for data in seed_data_scaled:
+        print(data.shape)
+        data_reshaped = data.reshape((1, 1, 11))
+        predicted_data = model.predict(data_reshaped)
+        predicted_data = scaler_y.inverse_transform(predicted_data)
+        predicted_list.append(predicted_data[0][0])
+    print(predicted_list)
+    return np.array(predicted_list)
+
+def predict_svr_model(model, seed_data, scaler_x_path, scaler_y_path):
+    predicted_list = []
+    scaler_x =joblib.load(scaler_x_path)
+    scaler_y = joblib.load(scaler_y_path)
+    seed_data_scaled = scaler_x.transform(seed_data)
+    for data in seed_data_scaled:
+        data_reshaped = data.reshape(1, -1)
+        predicted_data = model.predict(data_reshaped)
+        predicted_data = predicted_data.reshape(-1, 1)
+        predicted_data = scaler_y.inverse_transform(predicted_data)
+        predicted_list.append(predicted_data[0][0])
+    
+    return np.array(predicted_list)
 
 @app.route("/api/predict", methods=["POST"])
 def predict():

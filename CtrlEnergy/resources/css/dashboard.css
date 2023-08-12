@@ -1,0 +1,44 @@
+/* Dashboard styles */
+.dashboard {
+    padding: 20px;
+    background-color: #a8a1a1;
+    width:100%;
+  }
+  
+  .dashboard-content {
+    background-color: #fff;
+    border: 1px solid #ddd;
+    flex-direction: column;
+    align-items: center;
+    width:100%;
+  }
+  
+  .chart-section {
+    margin-bottom: 20px; /* Add margin to separate the chart section from the other sections */
+  }
+  
+  .data-sections {
+    display: flex;
+    flex-direction: column;
+  }
+  .dashboard-section {
+    flex: 1;
+    min-width: 300px;
+    background-color: #fff;
+    padding: 20px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  }
+
+ 
+  h2 {
+    margin-top: 0;
+    font-size: 1.5rem;
+    color: #333;
+  }
+  
+  p {
+    font-size: 1.2rem;
+    color: #666;
+  }

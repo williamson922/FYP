@@ -5,6 +5,7 @@ import {DataContext,DataProvider} from './DataProvider'
 import HolidayForm from './HolidayForm';
 import Dashboard from './Dashboard';
 import FileUpload from './FileUpload';
+import '../../css/main.css'
 
 const Main = () => {
 
