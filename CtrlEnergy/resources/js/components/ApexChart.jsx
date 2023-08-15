@@ -7,7 +7,7 @@ import {DataContext} from './DataProvider';
 
   const {predictedData,actualData} = useContext(DataContext);
   // Format the x-axis labels to show only the hour
-  const xAxisLabelsFormatted = actualData.map(entry => {
+  const xAxisLabelsFormatted = predictedData.map(entry => {
     const dateTime = entry["Date/Time"];
     if (dateTime) {
       return new Date(dateTime).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
@@ -98,7 +98,7 @@ import {DataContext} from './DataProvider';
     },
     {
       name: "Predicted",
-      data: predictedData.map(entry => (entry["Predicted Load"] / 1000).toFixed(2)),
+      data: predictedData.map(entry => (entry["predicted power"] / 1000).toFixed(2)),
     },
   ];
 

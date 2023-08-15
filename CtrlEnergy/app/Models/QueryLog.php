@@ -5,8 +5,8 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
-class EnergyData extends Model
+class QueryLog extends Model
 {
     use HasFactory;
-    protected $table = 'testing';
+    protected $fillable = ['table', 'query', 'bindings', 'time'];
 }

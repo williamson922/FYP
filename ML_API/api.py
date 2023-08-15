@@ -128,51 +128,6 @@ def save_data_database(data, is_first=True, is_prediction=False):
     except Exception as e:
         connection.rollback()
         raise ValueError("Error saving data to database: " + str(e))
-    
-def load_data(date):
-    try:
-        date_only = date[0].date()  # Get the date part using the .date() method
-        print("Date Only:", date_only)
-
-        query = """
-                SELECT
-                    `Date/Time`, `Voltage Ph-A Avg`, `Voltage Ph-B Avg`, `Voltage Ph-C Avg`,
-                    `Current Ph-A Avg`, `Current Ph-B Avg`, `Current Ph-C Avg`,
-                    `Power Factor Total`, `Power Ph-A`, `Power Ph-B`, `Power Ph-C`, `Total Power`, `predicted power`
-                FROM testing WHERE DATE(`Date/Time`) = %s ORDER BY `Date/Time` ASC
-                """
-        cursor.execute(query, (date_only,))
-        
-        data = cursor.fetchall()
-        print("Data:", data)
-        if data:
-            actual_dict = {}
-            predicted_dict = {}
-            for row in data:
-                actual_dict[str(row[0])] = {  # Convert datetime object to string
-                    "Voltage Ph-A Avg": row[1],
-                    "Voltage Ph-B Avg": row[2],
-                    "Voltage Ph-C Avg": row[3],
-                    "Current Ph-A Avg": row[4],
-                    "Current Ph-B Avg": row[5],
-                    "Current Ph-C Avg": row[6],
-                    "Power Factor Total": row[7],
-                    "Power Ph-A": row[8],
-                    "Power Ph-B": row[9],
-                    "Power Ph-C": row[10],
-                    "Total Power": row[11],
-                }
-                predicted_dict[str(row[0])] = {  # Convert datetime object to string
-                    "predicted": row[12],
-                }
-
-            return actual_dict, predicted_dict  # Return separate dictionaries for actual and predicted data
-
-        return {}, {}  # Return empty dictionaries if no data found for the specified date
-
-    except Exception as e:
-        print("Error loading data:", e)
-        return {}, {}
 
 def get_model_for_date(date, version):
     if date.weekday() < 5:
@@ -405,18 +360,22 @@ def predict():
             # Use the predict_next_48_points method to make predictions
             predictions_df = predict_next_48_points(model_to_use, preprocessed_df,preprocessed_data['Date/Time'])
             print( predictions_df)
-            save_data_database(predictions_df,is_prediction=True)
-            print(preprocessed_data.to_dict(orient='records'))
-            # Return the predicted data and actual in the JSON response
-            return jsonify({"predicted_data": predictions_df.to_dict(orient="records"),
-                            'actual_data':preprocessed_data.to_dict(orient='records')}), 200
+            # Save the predicted data to the database
+            save_data_database(predictions_df, is_prediction=True)
+
+            # Convert the preprocessed data to dictionary format
+            actual_data_records = preprocessed_data.drop(columns=['predicted power']).to_dict(orient='records')
+            print( actual_data_records)
+            # Construct the JSON response with predicted and actual data
+            response_data = {
+                "actual_data": actual_data_records,
+            }
+
+            # Return the JSON response with a 200 status code
+            return jsonify(response_data), 200
         else:
-            actual_dict, predicted_dict = load_data(preprocessed_data['Date/Time'])
-            print("Actual data:", actual_dict)
-            print("Predicted data:", predicted_dict)
             # Return the predicted data and actual in the JSON response
-            return jsonify({"predicted_data": predicted_dict,
-                            'actual_data':actual_dict}), 200
+            return jsonify({'actual_data':preprocessed_data.drop(columns=['predicted power']).to_dict(orient ='records')}), 200
 
     except Exception as e:
         # Log the full traceback

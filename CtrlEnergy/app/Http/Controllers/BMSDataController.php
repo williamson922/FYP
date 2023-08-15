@@ -4,6 +4,9 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\DB;
+use App\Models\QueryLog;
 use App\Events\receiveAPIDataEvent;
 use App\Models\EnergyData;
 
@@ -44,13 +47,65 @@ class BMSDataController extends Controller
 
         return $validatedData;
     }
-    public function getTodayData(Request $request)
+    public function getPredictData(Request $request)
     {
-        $dateOnly = date('Y-m-d', strtotime($request->input('date'))); // Extract the date part
+        // Enable query logging
+        DB::enableQueryLog();
+        $datetime = $request->input('Date/Time');
+        $date = date('Y-m-d', strtotime($datetime)); // Extract the date part
 
-        $energy_data = EnergyData::whereRaw("DATE(`Date/Time`) = ?", [$dateOnly])
+        info(['Date' => $date]);
+        info(['Time' => date('H:i:s', strtotime($datetime))]);
+
+        // Use the date to get the data for that specific date and before
+        $predict_data = EnergyData::select('Date/Time', 'predicted power')->whereDate('Date/Time', '=', $date)->limit(48)->get();
+
+        // Convert the collection to an array before logging
+        $predict_data_array = $predict_data->toArray();
+
+        // Log the data
+        info(['From table' => $predict_data_array]);
+
+        // Get the logged queries
+        $loggedQueries = DB::getQueryLog();
+
+        // Store the query log in a separate table for later analysis
+        foreach ($loggedQueries as $loggedQuery) {
+            QueryLog::create([
+                'table' => 'testing', // Change this to the actual table name
+                'query' => $loggedQuery['query'],
+                'bindings' => json_encode($loggedQuery['bindings']),
+                'time' => $loggedQuery['time'],
+            ]);
+        }
+
+        return response()->json($predict_data);
+    }
+    public function getActualData(Request $request)
+    {
+        $datetime = $request->input('Date/Time');
+        $date = date('Y-m-d', strtotime($datetime)); // Extract the date part
+
+        info(['Date' => $date]);
+        info(['Time' => date('H:i:s', strtotime($datetime))]);
+
+
+        // Use the date to get the data for that specific date and before
+        $actual_data = EnergyData::whereDate('Date/Time', '=', $date)
+            ->whereTime('Date/Time', '<=', date('H:i:s', strtotime($datetime)))
             ->get();
 
-        return response()->json($energy_data);
+        // Loop through the actual data and remove unwanted keys
+        foreach ($actual_data as &$entry) {
+            unset($entry['Unix Timestamp']);
+            unset($entry['predicted power']);
+        }
+        // Convert the collection to an array before logging
+        $actual_data_array = $actual_data->toArray();
+
+        // Log the data
+        info(['From table' => $actual_data_array]);
+
+        return response()->json($actual_data);
     }
 }
