@@ -2,7 +2,6 @@
 import os
 from flask import Flask, request, jsonify, send_file
 from flask_cors import CORS
-import glob
 import pandas as pd
 import numpy as np
 import tensorflow as tf
@@ -12,10 +11,11 @@ from werkzeug.utils import secure_filename
 import traceback
 import logging
 from sklearn.preprocessing import MinMaxScaler
-import datetime
+from datetime import datetime
 import keras
 import sklearn
 from db_connector import get_database_connection
+from model_manager import load_lstm_model, load_svr_model
 
 app = Flask(__name__)
 CORS(app)
@@ -26,45 +26,16 @@ cursor = connection.cursor()
 required_features = ["Date/Time", "Voltage Ph-A Avg", "Voltage Ph-B Avg", "Voltage Ph-C Avg", "Current Ph-A Avg", "Current Ph-B Avg", "Current Ph-C Avg"
                      ,"Power Factor Total","Power Ph-A","Power Ph-B","Power Ph-C", "Total Power","Unix Timestamp","predicted power"]
 
-def load_lstm_model(version):
-    # weekday model folder path
-    lstm_model_folder = f"models/LSTM/{version}"
+def get_model_for_date(date, version):
+    if date.weekday() < 5:
+        return load_lstm_model(version)
+    elif date.weekday() >= 5:
+        return load_svr_model("SVR_weekend", version)
+    elif is_holiday(date):
+        return load_svr_model("SVR_holiday", version)
+    else:
+        return load_lstm_model(version)
     
-    # Check if the specified version exists
-    if not os.path.exists(lstm_model_folder):
-        # If the version does not exist, get the latest version available
-        model_versions = glob.glob(f"models/LSTM/*")
-        if not model_versions:
-            raise ValueError("No LSTM model versions found.")
-        model_versions.sort(reverse=True)
-        latest_version = model_versions[0]
-        lstm_model_folder = latest_version
-    
-    # Load the model
-    model = load_model(lstm_model_folder)
-    return model
-
-
-# load the weekend/holiday model version
-def load_svr_model(model_type, version):
-    # SVR model folder path
-    svr_model_folder = f"models/SVR/{model_type}/{version}"
-    
-    # Check if the specified version exists
-    if not os.path.exists(svr_model_folder):
-        # If the version does not exist, get the latest version available
-        model_versions = glob.glob(f"models/SVR/{model_type}/*")
-        if not model_versions:
-            raise ValueError(f"No {model_type} model versions found.")
-        model_versions.sort(reverse=True)
-        latest_version = model_versions[0]
-        svr_model_folder = latest_version
-    
-    # Load the model using joblib
-    model = joblib.load(svr_model_folder)
-    return model
-
-
 def save_data_database(data, is_first=True, is_prediction=False):
     try:
         if not is_prediction:
@@ -128,18 +99,7 @@ def save_data_database(data, is_first=True, is_prediction=False):
     except Exception as e:
         connection.rollback()
         raise ValueError("Error saving data to database: " + str(e))
-
-def get_model_for_date(date, version):
-    if date.weekday() < 5:
-        return load_lstm_model(version)
-    elif date.weekday() >= 5:
-        return load_svr_model("SVR_weekend", version)
-    elif is_holiday(date):
-        return load_svr_model("SVR_holiday", version)
-    else:
-        return load_lstm_model(version)
-
-
+    
 def is_holiday(date):
     try:
         query = "SELECT date FROM holidays"
@@ -337,19 +297,11 @@ def predict():
             # Get the desired model version from the request parameters
             version = request.args.get("version")
 
-            # Load the appropriate model based on the specified version
+           # Load the appropriate model based on the specified version
             if version:
-                if version.startswith("lstm"):
-                    model_to_use = load_lstm_model(version)
-                elif version.startswith("svr_weekend"):
-                    model_to_use = load_svr_model("weekend", version)
-                elif version.startswith("svr_holiday"):
-                    model_to_use = load_svr_model("holiday", version)
-                else:
-                    return jsonify({"error": "Invalid model version"}), 400
-            else:
-                # If no version specified, use the default models
                 model_to_use = get_model_for_date(preprocessed_data["Date/Time"].iloc[0], version)
+            else:
+                model_to_use = get_model_for_date(preprocessed_data["Date/Time"].iloc[0], "default")  # Or specify a default version
         
             
             # Get the last weekend's data from the database
@@ -399,8 +351,138 @@ def serve_uploaded_file(filename):
         return jsonify({"error": str(e)}), 500
 
 
+@app.route("/api/training_model",methods=["POST"])
+def model_training():
+    try:
+        date = request.json.get('date')
+        version = request.args.get('version')
+        # Parse the date string into a datetime object, ignoring time and timezone
+        parsed_date = datetime.strptime(date, "%Y-%m-%d").date()
+        # Get the current timestamp as the dynamic version
+        dynamic_version = get_dynamic_version()
+        model=get_model_for_date(parsed_date,version)
+        message = ""
 
+        print(parsed_date)
+            # Call the appropriate prediction method based on the model type
+        if isinstance(model, keras.models.Sequential):
+            data = get_training_data_for_date(parsed_date)
+            preprocessed_data = preprocess_data(data)
+            scaler_x_path = './scaler/LSTM/lstm_scaler_x.pkl'
+            scaler_y_path = './scaler/LSTM/lstm_scaler_y.pkl'
+            message = training_lstm_model(model, preprocessed_data, scaler_x_path, scaler_y_path, dynamic_version)
+        elif isinstance(model, svm.SVR):
+            data = get_data_for_model(parsed_date)
+            scaler_x_path = './scaler/SVR/svr_scaler_x.pkl'
+            scaler_y_path = './scaler/SVR/svr_scaler_y.pkl'
+            if is_holiday(parsed_date):
+                message = training_svr_model(model, preprocessed_data, scaler_x_path, scaler_y_path, dynamic_version,isHoliday=True)
+            else:
+                message = training_svr_model(model, preprocessed_data, scaler_x_path, scaler_y_path, dynamic_version)
+                
+        else:
+            raise ValueError('Invalid model type: %s', model)
+        print("Message:",message)
+        return jsonify({"message": message})
+    except Exception as e:
+        # Log the full traceback
+        traceback_str = traceback.format_exc()
+        print(traceback_str)
+        return jsonify({"error": str(e)}), 500
+# Helper function to get a dynamic version based on current timestamp
+def get_dynamic_version():
+    timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
+    return f"v{timestamp}"
 
+def training_lstm_model(model, data, scaler_x_path, scaler_y_path, version):
+    try:
+        print("Model:", model)
+        print("Data:", data)
+        
+        # Load scalers
+        scaler_x = joblib.load(scaler_x_path)
+        scaler_y = joblib.load(scaler_y_path)
+        print(scaler_x, scaler_y)
+        # Preprocess data
+        X_data = data.drop(columns=['Date/Time', 'Total Power'])
+        y = data['Total Power']
+        print("X_data:", X_data)
+        print("y:", y)
+        X_scaled = scaler_x.transform(X_data)
+        print("X_scaled:", X_scaled)
+        y_reshaped = y.values.reshape(-1, 1)
+        y_scaled = scaler_y.transform(y_reshaped)
+        print("y_scaled:", y_scaled)
+ 
+        X_reshaped = X_scaled.reshape(-1, 1, X_data.shape[1])
+        
+        print("X_reshaped:", X_reshaped)
+        print("y_reshaped:", y_reshaped)
+        
+        # Train the model
+        model.fit(X_reshaped, y_scaled)
+        
+        # Save the trained model with the dynamic version
+        model_path = f"models/LSTM/{version}.keras"
+        model.save(model_path)
+        
+        # Save the model version into the database
+        save_model_version("LSTM", version)
+        
+        return "LSTM model training completed successfully"
+    except Exception as e:
+        return 'error:' + str(e)
+        
+def training_svr_model(model, data, scaler_x_path, scaler_y_path,version,isHoliday=False):
+    try:
+        scaler_x = joblib.load(scaler_x_path)
+        scaler_y = joblib.load(scaler_y_path)
+        X_data = data.drop(columns=['Date/Time', 'Total Power', 'predicted power'])
+        y = data['Total Power']
+        X_scaled = scaler_x.transform(X_data)
+        y_scaled = scaler_y.transform(y)
+        model.fit(X_scaled,y_scaled)
+        if isHoliday:
+            # Save the trained model with the dynamic version
+            model_path = f"models/SVR/SVR_holiday/{version}"
+        else:
+            model_path = f"models/SVR/SVR_weekend/{version}"
+        joblib.dump(model, model_path)
+        # Save the model version into the database
+        model_type = "SVR_holiday" if isHoliday else "SVR_weekend"
+        save_model_version(model_type, version)
+        return "SVR model training completed successfully"
+    except Exception as e:
+        return str(e)
+    
+def save_model_version(model_type, version):
+    try:
+        insert_query = "INSERT INTO model_versions (model_type, version) VALUES (%s, %s)"
+        values = (model_type, version)
+
+        cursor.execute(insert_query,values)
+        
+    except Exception as e:
+        print("Error saving model version:", e)
+        
+def get_training_data_for_date(date):
+    try:
+        query = "SELECT `Date/Time`, `Voltage Ph-A Avg`, `Voltage Ph-B Avg`, `Voltage Ph-C Avg`, `Current Ph-A Avg`, `Current Ph-B Avg`, `Current Ph-C Avg`, `Power Factor Total`, `Power Ph-A`, `Power Ph-B`, `Power Ph-C`, `Total Power`,`Unix Timestamp` FROM Energy_Data WHERE DATE(`Date/Time`) = %s ORDER BY `Date/Time`"
+        values = (date,)
+
+        cursor.execute(query, values)
+        result = cursor.fetchall()
+
+        # Convert the result to a pandas DataFrame
+        columns = ['Date/Time', 'Voltage Ph-A Avg', 'Voltage Ph-B Avg', 'Voltage Ph-C Avg', 'Current Ph-A Avg', 'Current Ph-B Avg', 'Current Ph-C Avg', 'Power Factor Total', 'Power Ph-A', 'Power Ph-B', 'Power Ph-C', 'Total Power', 'Unix Timestamp']
+        data = pd.DataFrame(result, columns=columns)
+
+        return data
+    except Exception as e:
+        print("Error fetching training data for date:", e)
+        return None
+
+    
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s]: %(message)s")
 

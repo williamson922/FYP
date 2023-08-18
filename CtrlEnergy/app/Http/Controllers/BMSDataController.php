@@ -9,6 +9,9 @@ use Illuminate\Support\Facades\DB;
 use App\Models\QueryLog;
 use App\Events\receiveAPIDataEvent;
 use App\Models\EnergyData;
+use App\Models\User;
+use App\Notifications\EnergyEfficiencyNotification;
+use Carbon\Carbon;
 
 class BMSDataController extends Controller
 {
@@ -107,5 +110,37 @@ class BMSDataController extends Controller
         info(['From table' => $actual_data_array]);
 
         return response()->json($actual_data);
+    }
+
+    public function checkEnergyEfficiencyAndNotification()
+    {
+        Log::info('Start of checkEnergyEfficiencyAndNotification.');
+        Log::info('Method executed.'); // Add this line
+        // $currentDate = Carbon::today(); // Get the current date
+        $currentDate = '2022-12-01';
+        // Fetch actual total power for the day
+        $actualTotalPower = EnergyData::whereDate('Date/Time', $currentDate)
+            ->sum('Total Power'); // Adjust column name as needed
+
+        // Fetch predicted total power for the day
+        $predictedTotalPower = EnergyData::whereDate('Date/Time', $currentDate)
+            ->sum('predicted power'); // Adjust column name as needed
+        // Check if predicted total power is not zero before performing the division
+        if ($predictedTotalPower !== 0) {
+            $energyEfficiency = ($actualTotalPower / $predictedTotalPower) * 100;
+
+            $threshold = 10; // Set the energy efficiency threshold
+
+            if ($energyEfficiency < (100 - $threshold) || $energyEfficiency > (100 + $threshold)) {
+                // Energy efficiency is below the threshold, send notifications to all users
+                $users = User::all();
+                foreach ($users as $user) {
+                    $user->notify(new EnergyEfficiencyNotification($energyEfficiency));
+                }
+            }
+        } else {
+            Log::info('Predicted total power is zero. Skipping energy efficiency check.');
+        }
+        Log::info('Energy efficiency check executed successfully.');
     }
 }

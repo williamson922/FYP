@@ -5,7 +5,8 @@ import '../../css/dashboard.css';
 
 const Dashboard = () => {
   const { actualData, predictedData} = useContext(DataContext);
-  const {totalEnergy,setTotalEnergy} = useState(0)
+  const [totalEnergy,setTotalEnergy] = useState(0)
+
   // Calculate peak power consumption
   const peakPowerEntry = actualData.length > 0 ? actualData.reduce((maxEntry, entry) => {
     if (entry['Total Power'] > maxEntry['Total Power']) {
@@ -21,13 +22,15 @@ const Dashboard = () => {
         total += entry['Total Power'];
       }
       setTotalEnergy((total / 1000).toFixed(2));
+    } else {
+      setTotalEnergy(0); // Set to zero when no data available
     }
   };
     // Calculate total energy whenever actualData changes
     useEffect(() => {
       calculateTotalEnergy();
-    }, []);
-
+    }, [actualData]);
+    
   const peakPower = peakPowerEntry ? peakPowerEntry['Total Power'] : 0;
 
   // Calculate energy efficiency
