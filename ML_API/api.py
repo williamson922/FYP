@@ -423,7 +423,7 @@ def training_lstm_model(model, data, scaler_x_path, scaler_y_path, version):
         model.fit(X_reshaped, y_scaled)
         
         # Save the trained model with the dynamic version
-        model_path = f"models/LSTM/{version}.keras"
+        model_path = f"models/LSTM/{version}_lstm.keras"
         model.save(model_path)
         
         # Save the model version into the database
