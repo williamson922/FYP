@@ -5,6 +5,7 @@ import {DataContext,DataProvider} from './DataProvider'
 import HolidayForm from './HolidayForm';
 import Dashboard from './Dashboard';
 import FileUpload from './FileUpload';
+import Setting from './Setting';
 import '../../css/main.css'
 
 const Main = () => {
@@ -97,6 +98,7 @@ const Main = () => {
             <div>
               {/* Render settings content */}
               <h2>Settings Content</h2>
+              <Setting/>
             </div>
           )}
         </div>
