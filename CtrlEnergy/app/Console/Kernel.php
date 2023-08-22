@@ -23,7 +23,7 @@ class Kernel extends ConsoleKernel
             app()->make('App\Http\Controllers\EnergyModelController')->triggerModelTraining();
             Log::info('Scheduled task completed'); // Log the completion of the task
         })->everyMinute();
-    } //->dailyAt("23:30");
+    }
 
     /**
      * Register the commands for the application.

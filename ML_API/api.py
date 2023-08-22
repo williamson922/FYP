@@ -26,37 +26,56 @@ cursor = connection.cursor()
 required_features = ["Date/Time", "Voltage Ph-A Avg", "Voltage Ph-B Avg", "Voltage Ph-C Avg", "Current Ph-A Avg", "Current Ph-B Avg", "Current Ph-C Avg"
                      ,"Power Factor Total","Power Ph-A","Power Ph-B","Power Ph-C", "Total Power","Unix Timestamp","predicted power"]
 
-def get_model_for_date(date, version):
-    if date.weekday() < 5:
-        return load_lstm_model(version)
-    elif date.weekday() >= 5:
-        return load_svr_model("SVR_weekend", version)
-    elif is_holiday(date):
-        return load_svr_model("SVR_holiday", version)
-    else:
-        return load_lstm_model(version)
+def get_model_for_date(model_version):
+    model_type = model_version[1]
+    version = model_version[2]
+    model = None
     
-def save_data_database(data, is_first=True, is_prediction=False):
+    if model_type == 'lstm':
+        model = load_lstm_model(version)
+    elif model_type in ['svr_weekday', 'svr_holiday']:
+        model = load_svr_model(model_type, version)
+    else:
+        raise ValueError(f"Unsupported model type: {model_type}")
+        
+    return model
+        
+def load_version_by_date(date):
+    if date.weekday() < 5:
+        query = "SELECT * FROM model_versions WHERE model_type = 'lstm' AND is_selected = 1"
+    elif date.weekday()>5:
+        query = "SELECT * FROM model_versions WHERE model_type = 'svr_weekend' AND is_selected = 1"
+    elif is_holiday(date):
+        query = "SELECT * FROM model_versions WHERE model_type = 'svr_holiday' AND is_selected = 1"
+    else:
+        print("I have no choice")
+        query = "SELECT * FROM model_versions WHERE model_type = 'lstm' AND is_selected = 1"
+    
+    cursor.execute(query)
+    model_version = cursor.fetchone()  # Use fetchone() instead of fetch()
+    return model_version
+        
+def insert_initial_data(connection, cursor, formatted_dates):
     try:
-        if not is_prediction:
-            if is_first:
-                # Create date range
-                datetime_start = data['Date/Time'].iloc[0]  # Get the first datetime value
-                today = pd.date_range(datetime_start, periods=48, freq='30T')
+        select_query = "SELECT COUNT(*) FROM testing WHERE `Date/Time` = %s"
+        insert_query = "INSERT INTO testing (`Date/Time`) VALUES (%s)"
 
-                # Convert the datetime values to the MySQL DATETIME format
-                formatted_dates = [dt.strftime('%Y-%m-%d %H:%M:%S') for dt in today]
+        for formatted_date in formatted_dates:
+            cursor.execute(select_query, (formatted_date,))
+            count = cursor.fetchone()[0]
+            
+            if count == 0:
+                cursor.execute(insert_query, (formatted_date,))
+        
+        connection.commit()
+    except Exception as e:
+        connection.rollback()
+        raise ValueError("Error inserting initial data: " + str(e))
 
-                # Prepare the data for insertion (formatted datetime values)
-                insertion_data = [(formatted_date,) for formatted_date in formatted_dates]
-
-                # Define the INSERT query for inserting interval datetimes
-                insert_query = "INSERT INTO testing (`Date/Time`) VALUES (%s)"
-
-                # Execute the INSERT query to insert interval datetimes
-                cursor.executemany(insert_query, insertion_data)
-                connection.commit()
-            update_query = """
+    
+def update_data(connection, cursor, data):
+    try:
+        update_query = """
             UPDATE testing 
             SET `Voltage Ph-A Avg`= %s,
                 `Voltage Ph-B Avg`= %s,
@@ -72,30 +91,44 @@ def save_data_database(data, is_first=True, is_prediction=False):
                 `Unix Timestamp` = %s 
             WHERE `Date/Time` = %s
             """
-
-            # Assuming 'data' contains the features and datetime value
-            for _, row in data.iterrows():
+        # Assuming 'data' contains the features and datetime value
+        for _, row in data.iterrows():
                 update_data = (
                     row['Voltage Ph-A Avg'], row['Voltage Ph-B Avg'], row['Voltage Ph-C Avg'],
                     row['Current Ph-A Avg'], row['Current Ph-B Avg'], row['Current Ph-C Avg'],
                     row['Power Factor Total'], row['Power Ph-A'], row['Power Ph-B'],
                     row['Power Ph-C'], row['Total Power'],row['Unix Timestamp'], row['Date/Time']
                 )
-            
-            cursor.execute(update_query, update_data)
-            connection.commit()
-                
-            # Update the prediction data based on DateTime
-        if is_prediction:
-            # Update query for predicted values
-            update_query = f"UPDATE testing SET `predicted power` = %s WHERE `Date/Time` = %s"
-            
-            # Prepare data for updating
-            update_data = [(row['Predicted Load'], pd.to_datetime(row['Date/Time'])) for _, row in data.iterrows()]
+        cursor.execute(update_query, update_data)
+        connection.commit()
+    except Exception as e:
+        connection.rollback()
+        raise ValueError("Error updating data: " + str(e))
+    
+def update_predicted_data(connection, cursor, data):
+    try:
+        update_query = "UPDATE testing SET `predicted power` = %s WHERE `Date/Time` = %s"
+        update_data = [(row['Predicted Load'], pd.to_datetime(row['Date/Time'])) for _, row in data.iterrows()]
+        cursor.executemany(update_query, update_data)
+        connection.commit()
+    except Exception as e:
+        connection.rollback()
+        raise ValueError("Error updating predicted data: " + str(e))
 
-            # Execute the UPDATE query to update predicted power values
-            cursor.executemany(update_query, update_data)
-            connection.commit()
+def save_data_database(data, is_first=True, is_prediction=False):
+    try:
+        if not is_prediction:
+            if is_first:
+                # Create date range and insert initial data
+                datetime_start = data['Date/Time'].iloc[0]
+                today = pd.date_range(datetime_start, periods=48, freq='30T')
+                formatted_dates = [dt.strftime('%Y-%m-%d %H:%M:%S') for dt in today]
+                insert_initial_data(connection, cursor, formatted_dates)
+                
+            # Update regular data
+            update_data(connection, cursor, data)
+        elif is_prediction:
+            update_predicted_data(connection, cursor, data)
     except Exception as e:
         connection.rollback()
         raise ValueError("Error saving data to database: " + str(e))
@@ -276,7 +309,7 @@ def predict():
                 
             else:
                 # Return a response or error message as needed
-                return jsonify({"error": "No data"}), 200
+                return jsonify({"error": "No data"}), 500
             print("DF:", data)
             # Preprocess the data
             preprocessed_data = preprocess_data(data)
@@ -294,12 +327,11 @@ def predict():
             # Extract the date from the timestamp and convert to datetime object
             preprocessed_data["Date/Time"] = pd.to_datetime(preprocessed_data["Date/Time"])
         
-            # Get the desired model version from the request parameters
-            version = request.args.get("version")
+            model_version = load_version_by_date(preprocessed_data["Date/Time"].iloc[0])
 
            # Load the appropriate model based on the specified version
-            if version:
-                model_to_use = get_model_for_date(preprocessed_data["Date/Time"].iloc[0], version)
+            if model_version:
+                model_to_use = get_model_for_date(model_version)
             else:
                 model_to_use = get_model_for_date(preprocessed_data["Date/Time"].iloc[0], "default")  # Or specify a default version
         
