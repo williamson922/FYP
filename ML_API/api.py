@@ -13,7 +13,8 @@ import logging
 from sklearn.preprocessing import MinMaxScaler
 from datetime import datetime
 import keras
-import sklearn
+import re
+from sklearn import svm
 from db_connector import get_database_connection
 from model_manager import load_lstm_model, load_svr_model
 
@@ -26,7 +27,7 @@ cursor = connection.cursor()
 required_features = ["Date/Time", "Voltage Ph-A Avg", "Voltage Ph-B Avg", "Voltage Ph-C Avg", "Current Ph-A Avg", "Current Ph-B Avg", "Current Ph-C Avg"
                      ,"Power Factor Total","Power Ph-A","Power Ph-B","Power Ph-C", "Total Power","Unix Timestamp","predicted power"]
 
-def get_model_for_date(model_version):
+def get_model(model_version):
     model_type = model_version[1]
     version = model_version[2]
     model = None
@@ -47,9 +48,6 @@ def load_version_by_date(date):
         query = "SELECT * FROM model_versions WHERE model_type = 'svr_weekend' AND is_selected = 1"
     elif is_holiday(date):
         query = "SELECT * FROM model_versions WHERE model_type = 'svr_holiday' AND is_selected = 1"
-    else:
-        print("I have no choice")
-        query = "SELECT * FROM model_versions WHERE model_type = 'lstm' AND is_selected = 1"
     
     cursor.execute(query)
     model_version = cursor.fetchone()  # Use fetchone() instead of fetch()
@@ -121,6 +119,7 @@ def save_data_database(data, is_first=True, is_prediction=False):
             if is_first:
                 # Create date range and insert initial data
                 datetime_start = data['Date/Time'].iloc[0]
+                print(datetime)
                 today = pd.date_range(datetime_start, periods=48, freq='30T')
                 formatted_dates = [dt.strftime('%Y-%m-%d %H:%M:%S') for dt in today]
                 insert_initial_data(connection, cursor, formatted_dates)
@@ -260,68 +259,52 @@ def predict_svr_model(model, seed_data, scaler_x_path, scaler_y_path):
     
     return np.array(predicted_list)
 
+def parse_datetime_with_space(datetime_str):
+    # Use a regular expression to extract the datetime string
+    match = re.match(r'(\d{2}/\d{2}/\d{4} \d{2}:\d{2}:\d{2} [APM]{2})', datetime_str)
+    if match:
+        extracted_datetime = match.group(1)
+        parsed_datetime = datetime.strptime(extracted_datetime, "%d/%m/%Y %I:%M:%S %p")
+        return parsed_datetime
+    else:
+        return None
+
 @app.route("/api/predict", methods=["POST"])
 def predict():
     try:
         print("Received request data:", request.get_json())  # Add this line for debug logging
-        if "file" in request.files:
-            # If the file is provided, process it
-            file = request.files["file"]
 
-            # Check if the file has a name
-            if file.filename == "":
-                return jsonify({"error": "No selected file"}), 400
+        json_data = request.get_json()
+        if json_data is None:
+            return jsonify({"error": "Invalid JSON data"}), 400
 
-            # Check if the file is in CSV format
-            if file.filename.split(".")[-1].lower() != "csv":
-                return jsonify({"error": "Only CSV files are allowed"}), 400
-
-            # Save the file to a temporary location
-            file_path = os.path.join("uploads", secure_filename(file.filename))
-            file.save(file_path)
-
-            # Load the data from the file
-            data = pd.read_csv(file_path)
-
-            # Check if the DataFrame contains all the required features
-            if all(feature in data.columns for feature in required_features):
-                # DataFrame already contains the required features, skip preprocessing
-                preprocessed_data = data
-            else:
-                # DataFrame is missing some required features, preprocess the data
-                preprocessed_data = preprocess_data(data, method="locf")
-                preprocessed_data = preprocess_data(preprocessed_data, method="bocf")
-
+        # Extract the actual data from the nested "data" key and create a DataFrame
+        input_data = json_data.get("data")
+        if input_data is None or not isinstance(input_data, list) or len(input_data) == 0:
+            return jsonify({"error": "Invalid JSON data"}), 400
+        print(input_data)
+        if len(input_data) > 0 :
+            # Convert 'Date/Time' to proper datetime format
+            for entry in input_data:
+                entry['Date/Time'] = datetime.strptime(entry['Date/Time'], "%d/%m/%Y %I:%M:%S %p").strftime("%Y-%m-%d %H:%M:%S")
+        # 'data' key exists and is not empty
+            data = pd.DataFrame(input_data,columns=required_features)
+            print(data['Date/Time'])
         else:
-            # If the file is not provided, use JSON data
-            json_data = request.get_json()
-            if json_data is None:
-                return jsonify({"error": "Invalid JSON data"}), 400
-
-            # Extract the actual data from the nested "data" key and create a DataFrame
-            input_data = json_data.get("data")
-            if input_data is None or not isinstance(input_data, list) or len(input_data) == 0:
-                return jsonify({"error": "Invalid JSON data"}), 400
-            print(input_data)
-            if len(input_data) > 0 :
-            # 'data' key exists and is not empty
-                data = pd.DataFrame(input_data,columns=required_features)
-                
-            else:
-                # Return a response or error message as needed
-                return jsonify({"error": "No data"}), 500
-            print("DF:", data)
-            # Preprocess the data
-            preprocessed_data = preprocess_data(data)
-            print('Preprocessed data:', preprocessed_data)
-            # Extract the date from the timestamp and convert to datetime object
-            preprocessed_data["Date/Time"] = pd.to_datetime(preprocessed_data["Date/Time"])
-            first_data = True
-            if (preprocessed_data['Date/Time'].dt.time != pd.Timestamp("00:00:00").time()).any():
-                first_data =False
-                save_data_database(preprocessed_data,is_first=False)
-            else:
-                save_data_database(preprocessed_data)
+            # Return a response or error message as needed
+            return jsonify({"error": "No data"}), 500
+        print("DF:", data)
+        # Preprocess the data
+        preprocessed_data = preprocess_data(data)
+        print('Preprocessed data:', preprocessed_data)
+        # Extract the date from the timestamp and convert to datetime object
+        preprocessed_data["Date/Time"] = pd.to_datetime(preprocessed_data["Date/Time"])
+        first_data = True
+        if (preprocessed_data['Date/Time'].dt.time != pd.Timestamp("00:00:00").time()).any():
+            first_data =False
+            save_data_database(preprocessed_data,is_first=False)
+        else:
+            save_data_database(preprocessed_data)
                 
         if first_data:        
             # Extract the date from the timestamp and convert to datetime object
@@ -331,9 +314,9 @@ def predict():
 
            # Load the appropriate model based on the specified version
             if model_version:
-                model_to_use = get_model_for_date(model_version)
+                model_to_use = get_model(model_version)
             else:
-                model_to_use = get_model_for_date(preprocessed_data["Date/Time"].iloc[0], "default")  # Or specify a default version
+               return jsonify({"error": "Missing model"}), 400
         
             
             # Get the last weekend's data from the database
@@ -366,35 +349,20 @@ def predict():
         traceback_str = traceback.format_exc()
         print(traceback_str)
         return jsonify({"error": str(e)}), 500
-    
-    
-@app.route("/api/uploads/<filename>", methods=["GET"])
-def serve_uploaded_file(filename):
-    try:
-        # Check if the file exists
-        file_path = os.path.join("uploads", filename)
-        if not os.path.isfile(file_path):
-            return jsonify({"error": "File not found"}), 404
-
-        # Serve the file for download
-        return send_file(file_path)
-
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
-
 
 @app.route("/api/training_model",methods=["POST"])
 def model_training():
     try:
         date = request.json.get('date')
-        version = request.args.get('version')
         # Parse the date string into a datetime object, ignoring time and timezone
         parsed_date = datetime.strptime(date, "%Y-%m-%d").date()
+        model_version = load_version_by_date(parsed_date)
+
         # Get the current timestamp as the dynamic version
         dynamic_version = get_dynamic_version()
-        model=get_model_for_date(parsed_date,version)
+        model=get_model(model_version)
         message = ""
-
+        print(model)
         print(parsed_date)
             # Call the appropriate prediction method based on the model type
         if isinstance(model, keras.models.Sequential):
@@ -459,7 +427,7 @@ def training_lstm_model(model, data, scaler_x_path, scaler_y_path, version):
         model.save(model_path)
         
         # Save the model version into the database
-        save_model_version("LSTM", version)
+        save_model_version("lstm", version)
         
         return "LSTM model training completed successfully"
     except Exception as e:
@@ -481,7 +449,7 @@ def training_svr_model(model, data, scaler_x_path, scaler_y_path,version,isHolid
             model_path = f"models/SVR/SVR_weekend/{version}"
         joblib.dump(model, model_path)
         # Save the model version into the database
-        model_type = "SVR_holiday" if isHoliday else "SVR_weekend"
+        model_type = "svr_holiday" if isHoliday else "svr_weekend"
         save_model_version(model_type, version)
         return "SVR model training completed successfully"
     except Exception as e:
@@ -489,13 +457,27 @@ def training_svr_model(model, data, scaler_x_path, scaler_y_path,version,isHolid
     
 def save_model_version(model_type, version):
     try:
-        insert_query = "INSERT INTO model_versions (model_type, version) VALUES (%s, %s)"
-        values = (model_type, version)
+        insert_query = "INSERT INTO model_versions (model_type, version,created_at) VALUES (%s, %s,%s)"
+        values = (model_type, version, datetime.now())
 
         cursor.execute(insert_query,values)
         
+        updated_model_version(model_type,version)
+        
     except Exception as e:
         print("Error saving model version:", e)
+
+def updated_model_version(model_type,version):
+    try:
+        reset_query = "UPDATE model_versions SET is_selected = 0 WHERE model_type = %s"
+        cursor.execute(reset_query,(model_type,))
+        
+        update_query = "UPDATE model_versions SET is_selected = 1 WHERE model_type = %s AND version = %s"
+        cursor.execute(update_query,(model_type,version))
+        print("Selected model updated successfully")
+        
+    except Exception as e:
+        print("Error updating selected model")
         
 def get_training_data_for_date(date):
     try:

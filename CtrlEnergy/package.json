@@ -18,6 +18,7 @@
     },
     "dependencies": {
         "apexcharts": "^3.41.0",
+        "date-fns-tz": "^2.0.0",
         "laravel-echo": "^1.15.2",
         "pusher-js": "^8.3.0",
         "react-apexcharts": "^1.4.0",

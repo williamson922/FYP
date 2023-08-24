@@ -11,6 +11,7 @@ def load_lstm_model(version):
     if not os.path.exists(lstm_model_folder):
         # If the version does not exist, get the latest version available
         model_versions = glob.glob(f"models/LSTM/*")
+        print(model_versions)
         if not model_versions:
             raise ValueError("No LSTM model versions found.")
         model_versions.sort(reverse=True)

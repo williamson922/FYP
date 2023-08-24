@@ -18,10 +18,9 @@ class BMSDataController extends Controller
     public function receiveDataFromBMSAndSendToAPI(Request $request)
     {
         $data = $request->all();
-        phpinfo();
         $validatedData = $this->validateAndConvertNumericData($data);
         $jsonData = ['data' => $validatedData]; // The data is already an array
-
+        Log::debug($validatedData);
         // Make the HTTP POST request to the prediction API
         $response = Http::asJson()->post('http://localhost:5000/api/predict', $jsonData);
         // Check if the request was successful
@@ -117,7 +116,7 @@ class BMSDataController extends Controller
         Log::info('Start of checkEnergyEfficiencyAndNotification.');
         Log::info('Method executed.'); // Add this line
         // $currentDate = Carbon::today(); // Get the current date
-        $currentDate = '2022-12-01';
+        $currentDate = '2022-12-03';
         // Fetch actual total power for the day
         $actualTotalPower = EnergyData::whereDate('Date/Time', $currentDate)
             ->sum('Total Power'); // Adjust column name as needed
