@@ -76,7 +76,7 @@ const Dashboard = () => {
         <div className="chart-section">
           <h2>Energy Consumption Comparison</h2>
           {actualData.length > 0 || predictedData.length > 0 ? (
-            <ApexChart actualData={actualData} predictedData={predictedData} />
+            <ApexChart dataType="total power" label="Power(kW)"/>
           ) : (
             <p><strong>No data available.</strong></p>
           )}

@@ -25,8 +25,8 @@ const DataProvider = ({ children }) => {
   }, []);
 //for loading the previous data if there is no data incoming at that time
 useEffect(() => {
-  // const today = new Date("2022-12-02T00:25:00");
-  const today = new Date();
+  const today = new Date("2022-12-02T23:35:00");
+  // const today = new Date();
   const currentTime = today.getHours() * 60 + today.getMinutes(); // Convert current time to minutes
   const roundedTime = Math.floor(currentTime / 30) * 30; // Round down to nearest 30-minute interval
   console.log(today);

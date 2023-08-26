@@ -55,8 +55,8 @@ def load_version_by_date(date):
         
 def insert_initial_data(connection, cursor, formatted_dates):
     try:
-        select_query = "SELECT COUNT(*) FROM testing WHERE `Date/Time` = %s"
-        insert_query = "INSERT INTO testing (`Date/Time`) VALUES (%s)"
+        select_query = "SELECT COUNT(*) FROM energy_data WHERE `Date/Time` = %s"
+        insert_query = "INSERT INTO energy_data (`Date/Time`) VALUES (%s)"
 
         for formatted_date in formatted_dates:
             cursor.execute(select_query, (formatted_date,))
@@ -74,7 +74,7 @@ def insert_initial_data(connection, cursor, formatted_dates):
 def update_data(connection, cursor, data):
     try:
         update_query = """
-            UPDATE testing 
+            UPDATE energy_data 
             SET `Voltage Ph-A Avg`= %s,
                 `Voltage Ph-B Avg`= %s,
                 `Voltage Ph-C Avg`= %s,
@@ -105,7 +105,7 @@ def update_data(connection, cursor, data):
     
 def update_predicted_data(connection, cursor, data):
     try:
-        update_query = "UPDATE testing SET `predicted power` = %s WHERE `Date/Time` = %s"
+        update_query = "UPDATE energy_data SET `predicted power` = %s WHERE `Date/Time` = %s"
         update_data = [(row['Predicted Load'], pd.to_datetime(row['Date/Time'])) for _, row in data.iterrows()]
         cursor.executemany(update_query, update_data)
         connection.commit()

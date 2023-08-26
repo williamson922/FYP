@@ -6,6 +6,7 @@ import HolidayForm from './HolidayForm';
 import Dashboard from './Dashboard';
 import FileUpload from './FileUpload';
 import Setting from './Setting';
+import AnalyticsChart from './AnalyticsChart';
 import '../../css/main.css'
 
 const Main = () => {
@@ -79,7 +80,7 @@ const Main = () => {
           {selectedNavItem === 'analytics' && (
             <div>
               {/* Render analytics content */}
-              <h2>Analytics Content</h2>
+              <AnalyticsChart/>
             </div>
           )}
           {selectedNavItem === 'holiday' && (

@@ -3,9 +3,10 @@ import ReactApexChart from 'react-apexcharts';
 import {DataContext} from './DataProvider';
 
 // const ApexChart = (energyData,predictedData) => {
-  const ApexChart = () => {
+  const ApexChart = ({dataType,label}) => {
 
   const {predictedData,actualData} = useContext(DataContext);
+  console.log("In Apex,", actualData);
   // Format the x-axis labels to show only the hour
   const xAxisLabelsFormatted = predictedData.map(entry => {
     const dateTime = entry["Date/Time"];
@@ -15,7 +16,11 @@ import {DataContext} from './DataProvider';
     return "";
   });
 
-  const chartTitle = actualData.length > 0 ? new Date(actualData[0]["Date/Time"]).toLocaleDateString() : "";
+  const chartTitle = actualData.length > 0 ? new Date(actualData[0]["Date/Time"]).toLocaleDateString("en-GB", {
+    year: "numeric",
+    month: "numeric",
+    day: "numeric",
+  }) : "";
   const [chartOptions, setChartOptions] = useState({
     chart: {
       height: 350,
@@ -68,10 +73,9 @@ import {DataContext} from './DataProvider';
     },
     yaxis: {
       title: {
-        text: 'Power(kW)'
+        text: label
       },
       min: 0,
-      max: 20,
       labels: {
         formatter: function (value) {
           // Check if the value is not undefined before formatting
@@ -91,16 +95,38 @@ import {DataContext} from './DataProvider';
       offsetX: -5
     }
   });
-  const chartSeries = [
-    {
-      name: "Actual",
-      data: actualData.map(entry => (entry["Total Power"] / 1000).toFixed(2)),
-    },
-    {
-      name: "Predicted",
-      data: predictedData.map(entry => (entry["predicted power"] / 1000).toFixed(2)),
-    },
-  ];
+  let chartSeries = [];
+  if(dataType == "total power"){
+     chartSeries = [
+      {
+        name: "Actual",
+        data: actualData.map(entry => (entry["Total Power"] / 1000).toFixed(2)),
+      },
+      {
+        name: "Predicted",
+        data: predictedData.map(entry => (entry["predicted power"] / 1000).toFixed(2)),
+      },
+    ];
+  }
+  else {
+     chartSeries = [
+
+      {
+        name: dataType,
+        data: actualData.map(entry => entry[dataType]),
+      },
+    ];
+  }
+
+    // Find the maximum value in the chartSeries data
+    const maxValue = Math.max(...chartSeries.flatMap(serie => serie.data.map(Number)));
+
+    // Round up the maximum value to the nearest integer
+    const roundedMaxValue = Math.ceil(maxValue);
+  
+    // Update the y-axis maximum value with the rounded integer
+    chartOptions.yaxis.max = roundedMaxValue;
+
 
   return (
     <div id="chart">

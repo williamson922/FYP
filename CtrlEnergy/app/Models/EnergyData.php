@@ -8,5 +8,5 @@ use Illuminate\Database\Eloquent\Model;
 class EnergyData extends Model
 {
     use HasFactory;
-    protected $table = 'testing';
+    protected $table = 'energy_data';
 }
