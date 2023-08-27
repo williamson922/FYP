@@ -182,19 +182,38 @@ def get_data_for_model(date):
     column_features = ["Date/Time", "Voltage Ph-A Avg", "Voltage Ph-B Avg", "Voltage Ph-C Avg", "Current Ph-A Avg", "Current Ph-B Avg", "Current Ph-C Avg"
                      ,"Power Factor Total","Power Ph-A","Power Ph-B","Power Ph-C", "Total Power","Unix Timestamp"]
     print("in get_data_for_model:", date, date.weekday())
-    if date.weekday() >=5:
-        query = "SELECT `Date/Time`, `Voltage Ph-A Avg`, `Voltage Ph-B Avg`, `Voltage Ph-C Avg`, `Current Ph-A Avg`, `Current Ph-B Avg`, `Current Ph-C Avg`, `Power Factor Total`, `Power Ph-A`, `Power Ph-B`, `Power Ph-C`, `Total Power`,`Unix Timestamp` FROM Energy_Data WHERE `Date/Time` BETWEEN (SELECT MAX(`Date/Time`) FROM Energy_Data WHERE WEEKDAY(`Date/Time`) = 5) AND (SELECT MAX(`Date/Time`) FROM Energy_Data WHERE WEEKDAY(`Date/Time`) = 6) ORDER BY `Date/Time` DESC LIMIT 48"
-    elif date.weekday() < 5:
-        query = "SELECT `Date/Time`, `Voltage Ph-A Avg`, `Voltage Ph-B Avg`, `Voltage Ph-C Avg`, `Current Ph-A Avg`, `Current Ph-B Avg`, `Current Ph-C Avg`, `Power Factor Total`, `Power Ph-A`, `Power Ph-B`, `Power Ph-C`, `Total Power`, `Unix Timestamp` FROM Energy_Data WHERE `Date/Time` BETWEEN (SELECT MAX(`Date/Time`) FROM Energy_Data WHERE WEEKDAY(`Date/Time`) < 5) AND (SELECT MAX(`Date/Time`) FROM Energy_Data WHERE WEEKDAY(`Date/Time`) < 5) ORDER BY `Date/Time` DESC LIMIT 48"
+    
+    query = """
+    SELECT `Date/Time`, `Voltage Ph-A Avg`, `Voltage Ph-B Avg`, `Voltage Ph-C Avg`,
+           `Current Ph-A Avg`, `Current Ph-B Avg`, `Current Ph-C Avg`, `Power Factor Total`,
+           `Power Ph-A`, `Power Ph-B`, `Power Ph-C`, `Total Power`, `Unix Timestamp`
+    FROM Energy_Data
+    WHERE DATE(`Date/Time`) <> %s
+    """
+    
+    if is_holiday(date):
+        query
+    elif date.weekday() >= 5:
+        query += " AND WEEKDAY(`Date/Time`) >= 5"
+    elif date.weekday() <5:
+        query += " AND WEEKDAY(`Date/Time`) < 5"
+ 
+        
+    query += " ORDER BY `Date/Time` DESC LIMIT 48"
+    
     print(query)
-    cursor.execute(query)
+    
+    date = date.date()
+    cursor.execute(query, (date,))
     data = cursor.fetchall()
+    
     if len(data) >= 48:
         # Since the query results are in descending order, reverse the data list to get the earliest date first
         data.reverse()
         return pd.DataFrame(data, columns=column_features)
     else:
         return None
+
     
 def predict_next_48_points(model, historical_data, datetime, look_back=48):
     print("In predict_next_48_points:",historical_data)
