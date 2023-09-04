@@ -55,12 +55,12 @@ const Main = () => {
               >
                 <i className="fas fa-cog"></i> Holiday Form
               </li>
-              <li
+              {/* <li
                 className={selectedNavItem === 'fileUpload' ? 'active' : ''}
                 onClick={() => handleNavItemSelect('fileUpload')}
               >
                 <i className="fas fa-cog"></i> Upload File
-              </li>
+              </li> */}
               <li
                 className={selectedNavItem === 'settings' ? 'active' : ''}
                 onClick={() => handleNavItemSelect('settings')}
@@ -89,12 +89,7 @@ const Main = () => {
               <HolidayForm />
             </div>
           )}
-          {selectedNavItem === 'fileUpload' && (
-            <div>
-              {/* Render holiday form */}
-              <FileUpload />
-            </div>
-          )}
+          
           {selectedNavItem === 'settings' && (
             <div>
               {/* Render settings content */}

@@ -6,7 +6,6 @@ import {DataContext} from './DataProvider';
   const ApexChart = ({dataType,label}) => {
 
   const {predictedData,actualData} = useContext(DataContext);
-  console.log("In Apex,", actualData);
   // Format the x-axis labels to show only the hour
   const xAxisLabelsFormatted = predictedData.map(entry => {
     const dateTime = entry["Date/Time"];
@@ -16,7 +15,7 @@ import {DataContext} from './DataProvider';
     return "";
   });
 
-  const chartTitle = actualData.length > 0 ? new Date(actualData[0]["Date/Time"]).toLocaleDateString("en-GB", {
+  let chartTitle = actualData.length > 0 ? new Date(actualData[0]["Date/Time"]).toLocaleDateString("en-GB", {
     year: "numeric",
     month: "numeric",
     day: "numeric",
@@ -63,6 +62,9 @@ import {DataContext} from './DataProvider';
       size: 1
     },
     xaxis: {
+      title:{
+        text:"Time"
+      },
       type: "category",
       categories: xAxisLabelsFormatted,
       labels: {

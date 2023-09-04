@@ -12,6 +12,7 @@ const DataProvider = ({ children }) => {
     const [actualData, setActualData] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState(null); // Add error state
+    const [date,setDate]=useState(new Date());
     
      // Set a timeout to update isLoading to false if no data arrives within 10 seconds
   useEffect(() => {
@@ -25,15 +26,17 @@ const DataProvider = ({ children }) => {
   }, []);
 //for loading the previous data if there is no data incoming at that time
 useEffect(() => {
-  const today = new Date("2022-12-02T23:35:00");
-  // const today = new Date();
-  const currentTime = today.getHours() * 60 + today.getMinutes(); // Convert current time to minutes
+  // const date = new Date("2023-03-03T23:40:00");
+  if(date.getDate() < new Date()){
+    date.setHours(23,35,0);
+  }
+  const currentTime = date.getHours() * 60 + date.getMinutes(); // Convert current time to minutes
   const roundedTime = Math.floor(currentTime / 30) * 30; // Round down to nearest 30-minute interval
-  console.log(today);
+  console.log(date);
   console.log(currentTime);
   console.log(roundedTime);
   
-  const cutoffTimeUTC = startOfMinute(addMinutes(today, -currentTime % 30)); // Subtract the remainder to round down
+  const cutoffTimeUTC = startOfMinute(addMinutes(date, -currentTime % 30)); // Subtract the remainder to round down
   console.log(cutoffTimeUTC);
   // Convert the UTC cutoff time to your local timezone
   const localTimeZone = 'Asia/Singapore'; // Replace with your local timezone
@@ -56,8 +59,9 @@ useEffect(() => {
       setError("Error fetching data: " + error.message);
       setIsLoading(false);
     });
-}, []);
+}, [date]);
 
+console.log("actual data in provider:", actualData)
   useEffect(() => {
     Pusher.logToConsole = true;
   
@@ -75,26 +79,13 @@ useEffect(() => {
         axios.post('/api/get-data/actual', { 'Date/Time': data.data.actual_data[0]['Date/Time'] }),
         axios.post('/api/get-data/predict', { 'Date/Time': data.data.actual_data[0]['Date/Time'] })
       ]);
-  
-      console.log("After HTTP actual:", actual_data_response);
-      console.log("After HTTP predict:", predicted_data_response);
-  
+
       setActualData(actual_data_response.data);
       setPredictedData(predicted_data_response.data);
       setIsLoading(false);
     });
   }, []);
     
-    if(actualData.length>0){
-      console.log("Actual:");
-      console.log(actualData.map(entry => (entry['Total Power']/1000).toFixed(2)));
-      }
-
-      if(predictedData.length>0){
-        console.log("Predicted:");
-        console.log(predictedData.map(entry => (entry['predicted power']/1000).toFixed(2)));
-        }
-      
     // Show loading state or error message until data is available
     if (isLoading) {
       return <div>Loading...</div>;
@@ -108,6 +99,8 @@ useEffect(() => {
     const contextValue = {
       predictedData,
       actualData,
+      date,
+      setDate,
     };
   
     return (

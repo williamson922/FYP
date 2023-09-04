@@ -10,7 +10,7 @@ use App\Models\QueryLog;
 use App\Events\receiveAPIDataEvent;
 use App\Models\EnergyData;
 use App\Models\User;
-use App\Notifications\EnergyEfficiencyNotification;
+use App\Notifications\MAPENotification;
 use Carbon\Carbon;
 
 class BMSDataController extends Controller
@@ -60,7 +60,7 @@ class BMSDataController extends Controller
         info(['Time' => date('H:i:s', strtotime($datetime))]);
 
         // Use the date to get the data for that specific date and before
-        $predict_data = EnergyData::select('Date/Time', 'predicted power')->whereDate('Date/Time', '=', $date)->limit(48)->get();
+        $predict_data = EnergyData::select('Date/Time', 'predicted power')->whereDate('Date/Time', '=', $date)->orderBy('Date/Time', 'ASC')->limit(48)->get();
 
         // Convert the collection to an array before logging
         $predict_data_array = $predict_data->toArray();
@@ -91,10 +91,10 @@ class BMSDataController extends Controller
         info(['Date' => $date]);
         info(['Time' => date('H:i:s', strtotime($datetime))]);
 
-
         // Use the date to get the data for that specific date and before
         $actual_data = EnergyData::whereDate('Date/Time', '=', $date)
             ->whereTime('Date/Time', '<=', date('H:i:s', strtotime($datetime)))
+            ->orderBy('Date/Time', 'ASC')
             ->get();
 
         // Loop through the actual data and remove unwanted keys
@@ -111,35 +111,48 @@ class BMSDataController extends Controller
         return response()->json($actual_data);
     }
 
-    public function checkEnergyEfficiencyAndNotification()
+    public function checkMAPEAndNotification()
     {
-        Log::info('Start of checkEnergyEfficiencyAndNotification.');
-        Log::info('Method executed.'); // Add this line
+        Log::info('Start of checkMAPEAndNotification.');
+        $mapeThreshold = 10; // Set your desired MAPE threshold here
         // $currentDate = Carbon::today(); // Get the current date
-        $currentDate = '2022-12-03';
+        $currentDate = '2023-03-04';
         // Fetch actual total power for the day
-        $actualTotalPower = EnergyData::whereDate('Date/Time', $currentDate)
-            ->sum('Total Power'); // Adjust column name as needed
+        $actualData = EnergyData::whereDate('Date/Time', $currentDate)
+            ->select('Total Power')
+            ->get(); // Adjust column name and model as needed
 
         // Fetch predicted total power for the day
-        $predictedTotalPower = EnergyData::whereDate('Date/Time', $currentDate)
-            ->sum('predicted power'); // Adjust column name as needed
-        // Check if predicted total power is not zero before performing the division
-        if ($predictedTotalPower !== 0) {
-            $energyEfficiency = ($actualTotalPower / $predictedTotalPower) * 100;
+        $predictedData = EnergyData::whereDate('Date/Time', $currentDate)
+            ->select('predicted power')
+            ->get(); // Adjust column name and model as needed
 
-            $threshold = 10; // Set the energy efficiency threshold
+        // Ensure both actual and predicted data are available
+        if ($actualData->count() > 0 && $predictedData->count() > 0) {
+            $mapeValues = [];
 
-            if ($energyEfficiency < (100 - $threshold) || $energyEfficiency > (100 + $threshold)) {
-                // Energy efficiency is below the threshold, send notifications to all users
+            // Calculate MAPE for each data point
+            foreach ($actualData as $index => $actualEntry) {
+                $actual = $actualEntry['Total Power'];
+                $predicted = $predictedData[$index]['predicted power'];
+                $mape = abs(($actual - $predicted) / $actual) * 100;
+                $mapeValues[] = $mape;
+            }
+
+            // Check for MAPE exceeding the threshold
+            $anomalies = array_filter($mapeValues, function ($mape) use ($mapeThreshold) {
+                return $mape > $mapeThreshold;
+            });
+
+            if (!empty($anomalies)) {
+                Log::debug($anomalies);
+                // Send notifications to all users
                 $users = User::all();
                 foreach ($users as $user) {
-                    $user->notify(new EnergyEfficiencyNotification($energyEfficiency));
+                    $user->notify(new MAPENotification($anomalies));
                 }
             }
-        } else {
-            Log::info('Predicted total power is zero. Skipping energy efficiency check.');
         }
-        Log::info('Energy efficiency check executed successfully.');
+        Log::info('MAPE check executed successfully.');
     }
 }

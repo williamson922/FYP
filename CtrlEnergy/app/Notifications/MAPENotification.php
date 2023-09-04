@@ -9,17 +9,17 @@ use Illuminate\Notifications\Notification;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\URL;
 
-class EnergyEfficiencyNotification extends Notification
+class MAPENotification extends Notification
 {
     use Queueable;
 
-    protected $energyEfficiency;
+    protected $mape;
     /**
      * Create a new notification instance.
      */
-    public function __construct($energyEfficiency)
+    public function __construct($mape)
     {
-        $this->energyEfficiency = $energyEfficiency;
+        $this->mape = $mape;
     }
 
     /**
@@ -38,20 +38,19 @@ class EnergyEfficiencyNotification extends Notification
     public function toMail($notifiable)
     {
         $mailMessage = (new MailMessage)
-            ->subject('Energy Efficiency Alert')
-            ->line('The introduction to the notification.');
+            ->subject('MAPE Anomaly Alert')
+            ->line('You are receiving this notification because of a MAPE anomaly.');
 
-        if ($this->energyEfficiency > 110) {
-            $mailMessage->line('Energy usage is high. Consider taking measures to reduce consumption.');
-        } elseif ($this->energyEfficiency < 85) {
-            $mailMessage->line('Energy efficiency is degraded. Consider retraining the model.');
-        } elseif ($this->energyEfficiency > 115) {
-            $mailMessage->line('Energy efficiency is degraded. Consider retraining the model.');
+        if ($this->mape > 10) {
+            // If the MAPE is greater than 10, it's considered an anomaly indicating potential issues.
+            $mailMessage->line('Anomaly detected in MAPE. Please investigate.');
         } else {
-            $mailMessage->line('Energy efficiency is within acceptable range.');
+            // If the MAPE is within an acceptable range (<= 10), no anomaly is detected.
+            $mailMessage->line('No significant anomalies detected in MAPE.');
         }
+
         // Add a button with a link to your web application
-        $mailMessage->action('View Energy Data', URL::route('home'));
+        $mailMessage->action('View MAPE Data', URL::route('home'));
 
         return $mailMessage;
     }

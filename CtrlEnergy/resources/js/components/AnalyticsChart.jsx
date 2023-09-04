@@ -5,7 +5,6 @@ import {DataContext} from './DataProvider';
 const AnalyticsChart=()=>{
     const {actualData} = useContext(DataContext)
     const properties = actualData.length > 0 ? Object.keys(actualData[0]) : [];
-    console.log("In AnalyticsChart,", properties)
     return (
         <div className="analytics-chart">
           <h2>Energy Analytics</h2>
@@ -16,9 +15,9 @@ const AnalyticsChart=()=>{
             <ApexChart dataType="Current Ph-A Avg" label="Current(A)" />
             <ApexChart dataType="Current Ph-B Avg" label="Current(A)" />
             <ApexChart dataType="Current Ph-C Avg" label="Current(A)" />
-            <ApexChart dataType="Power Ph-A" label="Power(kW)" />
-            <ApexChart dataType="Power Ph-B" label="Power(kW)" />
-            <ApexChart dataType="Power Ph-C" label="Power(kW)" />
+            <ApexChart dataType="Power Ph-A" label="Power(W)" />
+            <ApexChart dataType="Power Ph-B" label="Power(W)" />
+            <ApexChart dataType="Power Ph-C" label="Power(W)" />
           </div>
         </div>
       );

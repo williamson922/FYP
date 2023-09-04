@@ -43,12 +43,12 @@ def get_model(model_version):
         
 def load_version_by_date(date):
     print("in load version by date:",date)
-    if date.weekday() < 5:
+    if is_holiday(date):
+        query = "SELECT * FROM model_versions WHERE model_type = 'svr_holiday' AND is_selected = 1"
+    elif date.weekday() < 5:
         query = "SELECT * FROM model_versions WHERE model_type = 'lstm' AND is_selected = 1"
     elif date.weekday()>=5:
         query = "SELECT * FROM model_versions WHERE model_type = 'svr_weekend' AND is_selected = 1"
-    elif is_holiday(date):
-        query = "SELECT * FROM model_versions WHERE model_type = 'svr_holiday' AND is_selected = 1"
     
     cursor.execute(query)
     model_version = cursor.fetchone()  # Use fetchone() instead of fetch()
@@ -135,6 +135,8 @@ def save_data_database(data, is_first=True, is_prediction=False):
     
 def is_holiday(date):
     try:
+        if isinstance(date,datetime):
+            date = date.date()
         query = "SELECT date FROM holidays"
         cursor.execute(query)
         holiday_dates = [row[0] for row in cursor.fetchall()]
@@ -187,23 +189,22 @@ def get_data_for_model(date):
     SELECT `Date/Time`, `Voltage Ph-A Avg`, `Voltage Ph-B Avg`, `Voltage Ph-C Avg`,
            `Current Ph-A Avg`, `Current Ph-B Avg`, `Current Ph-C Avg`, `Power Factor Total`,
            `Power Ph-A`, `Power Ph-B`, `Power Ph-C`, `Total Power`, `Unix Timestamp`
-    FROM Energy_Data
-    WHERE DATE(`Date/Time`) <> %s
+    FROM Energy_Data 
     """
     
     if is_holiday(date):
-        query
+        query += """INNER JOIN holidays ON Date(`Energy_Data`.`Date/Time`) = `holidays`.`date` WHERE DATE(`Energy_Data`.`Date/Time`) <> %s"""
+    
     elif date.weekday() >= 5:
-        query += " AND WEEKDAY(`Date/Time`) >= 5"
+        query += "WHERE WEEKDAY(`Date/Time`) >= 5 AND DATE(`Date/Time`) <> %s"
+        
     elif date.weekday() <5:
-        query += " AND WEEKDAY(`Date/Time`) < 5"
+        query += "WHERE WEEKDAY(`Date/Time`) < 5 AND DATE(`Date/Time`) <> %s"
  
         
-    query += " ORDER BY `Date/Time` DESC LIMIT 48"
-    
-    print(query)
-    
+    query += " ORDER BY `Energy_Data`.`Date/Time` DESC LIMIT 48"
     date = date.date()
+    print(query)
     cursor.execute(query, (date,))
     data = cursor.fetchall()
     
@@ -213,16 +214,18 @@ def get_data_for_model(date):
         return pd.DataFrame(data, columns=column_features)
     else:
         return None
-
+    
+def removeNegativeSign(data):
+    data['Power Factor Total']= abs(data['Power Factor Total'])
+    return data
     
 def predict_next_48_points(model, historical_data, datetime, look_back=48):
-    print("In predict_next_48_points:",historical_data)
+    print("In predict_next_48_points:",historical_data[['Date/Time','Power Factor Total']])
     # Extract the last date in the historical_data to create the datetime index for predictions
     historical_data = historical_data.drop(columns=['Date/Time', 'Total Power'])
 
     # Use the last 'look_back' data points from the historical_data as the seed for prediction
     seed_data = historical_data[-look_back:]
-    
     # Initialize an empty list to store the predicted data points
     predicted_array = []
 
@@ -252,43 +255,42 @@ def predict_next_48_points(model, historical_data, datetime, look_back=48):
     return predicted_df
 
 def predict_lstm_model(model, seed_data, scaler_x_path, scaler_y_path):
-    predicted_list = []
     scaler_x=joblib.load(scaler_x_path)
     scaler_y = joblib.load(scaler_y_path)
     seed_data_scaled = scaler_x.transform(seed_data)
     
-    for data in seed_data_scaled:
-        print(data.shape)
-        data_reshaped = data.reshape((1, 1, 11))
-        predicted_data = model.predict(data_reshaped)
-        predicted_data = scaler_y.inverse_transform(predicted_data)
-        predicted_list.append(predicted_data[0][0])
-    print(predicted_list)
-    return np.array(predicted_list)
+    # Reshape seed_data_scaled to match the model's input shape
+    seed_data_reshaped = seed_data_scaled.reshape((seed_data_scaled.shape[0], 1, seed_data_scaled.shape[1]))
+    
+    # Predict all data points at once
+    predicted_data = model.predict(seed_data_reshaped)
+    
+    # Inverse transform the predictions
+    predicted_data = scaler_y.inverse_transform(predicted_data)
+    
+    # Flatten the predictions if needed
+    predicted_data = predicted_data.flatten()
+    
+    return predicted_data
 
 def predict_svr_model(model, seed_data, scaler_x_path, scaler_y_path):
-    predicted_list = []
     scaler_x =joblib.load(scaler_x_path)
     scaler_y = joblib.load(scaler_y_path)
     seed_data_scaled = scaler_x.transform(seed_data)
-    for data in seed_data_scaled:
-        data_reshaped = data.reshape(1, -1)
-        predicted_data = model.predict(data_reshaped)
-        predicted_data = predicted_data.reshape(-1, 1)
-        predicted_data = scaler_y.inverse_transform(predicted_data)
-        predicted_list.append(predicted_data[0][0])
-    
-    return np.array(predicted_list)
 
-def parse_datetime_with_space(datetime_str):
-    # Use a regular expression to extract the datetime string
-    match = re.match(r'(\d{2}/\d{2}/\d{4} \d{2}:\d{2}:\d{2} [APM]{2})', datetime_str)
-    if match:
-        extracted_datetime = match.group(1)
-        parsed_datetime = datetime.strptime(extracted_datetime, "%d/%m/%Y %I:%M:%S %p")
-        return parsed_datetime
-    else:
-        return None
+    # Predict all data points at once
+    predicted_data = model.predict(seed_data_scaled)
+
+    # Reshape the predicted_data if needed
+    predicted_data = predicted_data.reshape(-1, 1)
+
+    # Inverse transform the predictions
+    predicted_data = scaler_y.inverse_transform(predicted_data)
+
+    # Flatten the predictions if needed
+    predicted_data = predicted_data.flatten()
+
+    return predicted_data
 
 @app.route("/api/predict", methods=["POST"])
 def predict():
@@ -342,7 +344,8 @@ def predict():
             
             # Get the last weekend's data from the database
             last_48_data = get_data_for_model(preprocessed_data["Date/Time"].iloc[0])
-            preprocessed_df = pd.DataFrame(last_48_data)
+            historical_df = pd.DataFrame(last_48_data)
+            preprocessed_df=removeNegativeSign(historical_df)
             #Change the format of the date of actual preprocessed_data)
             preprocessed_data['Date/Time'] = pd.to_datetime(preprocessed_data['Date/Time']).dt.strftime("%d-%m-%Y %H:%M")
             # Use the predict_next_48_points method to make predictions
@@ -417,9 +420,6 @@ def get_dynamic_version():
 
 def training_lstm_model(model, data, scaler_x_path, scaler_y_path, version):
     try:
-        print("Model:", model)
-        print("Data:", data)
-        
         # Load scalers
         scaler_x = joblib.load(scaler_x_path)
         scaler_y = joblib.load(scaler_y_path)
@@ -427,8 +427,6 @@ def training_lstm_model(model, data, scaler_x_path, scaler_y_path, version):
         # Preprocess data
         X_data = data.drop(columns=['Date/Time', 'Total Power'])
         y = data['Total Power']
-        print("X_data:", X_data)
-        print("y:", y)
         X_scaled = scaler_x.transform(X_data)
         print("X_scaled:", X_scaled)
         y_reshaped = y.values.reshape(-1, 1)

@@ -5,9 +5,6 @@ namespace App\Console;
 use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Foundation\Console\Kernel as ConsoleKernel;
 use Illuminate\Support\Facades\Log;
-use App\Models\EnergyData;
-use App\Models\User;
-use App\Notifications\EnergyEfficiencyNotification;
 
 class Kernel extends ConsoleKernel
 {
@@ -19,8 +16,8 @@ class Kernel extends ConsoleKernel
         $schedule->call(function () {
             Log::info('Scheduled task started'); // Log the start of the task
             // Call the checkEnergyEfficiencyAndNotify function
-            app()->make('App\Http\Controllers\BMSDataController')->checkEnergyEfficiencyAndNotification();
-            app()->make('App\Http\Controllers\EnergyModelController')->triggerModelTraining();
+            app()->make('App\Http\Controllers\BMSDataController')->checkMAPEAndNotification();
+            // app()->make('App\Http\Controllers\EnergyModelController')->triggerModelTraining();
             Log::info('Scheduled task completed'); // Log the completion of the task
         })->everyMinute();
     }
