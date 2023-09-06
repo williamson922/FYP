@@ -31,7 +31,7 @@ const Main = () => {
   return (
     <div className="dashboard">
       <header className="dashboard-header">
-        <h1>Welcome to the Dashboard!</h1>
+        <h1>Welcome to the Energy Dashboard!</h1>
       </header>
       <main className="dashboard-content">
         <div className="dashboard-sidebar">

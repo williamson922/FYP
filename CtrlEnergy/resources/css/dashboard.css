@@ -1,44 +1,132 @@
-/* Dashboard styles */
+* dashboard.css */
 .dashboard {
-    padding: 20px;
-    background-color: #a8a1a1;
-    width:100%;
-  }
-  
-  .dashboard-content {
-    background-color: #fff;
-    border: 1px solid #ddd;
-    flex-direction: column;
-    align-items: center;
-    width:100%;
-  }
-  
-  .chart-section {
-    margin-bottom: 20px; /* Add margin to separate the chart section from the other sections */
-  }
-  
-  .data-sections {
-    display: flex;
-    flex-direction: column;
-  }
-  .dashboard-section {
-    flex: 1;
-    min-width: 300px;
-    background-color: #fff;
-    padding: 20px;
-    border: 1px solid #ddd;
-    border-radius: 4px;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-  }
+  font-family: Arial, sans-serif;
+  padding: 20px;
+  background-color: #a8a1a1;
+  width: 100%;
+}
 
- 
-  h2 {
-    margin-top: 0;
-    font-size: 1.5rem;
-    color: #333;
-  }
-  
-  p {
-    font-size: 1.2rem;
-    color: #666;
-  }
+.dashboard-content {
+  background-color: #fff;
+  border: 1px solid #ddd;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+}
+
+.chart-section {
+  margin-bottom: 20px;
+}
+
+.data-sections {
+  display: flex;
+  flex-direction: column;
+}
+
+.dashboard-section {
+  flex: 1;
+  min-width: 300px;
+  background-color: #fff;
+  padding: 20px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.dashboard-section h2 {
+  margin-top: 0;
+  font-size: 1.5rem;
+  color: #333;
+}
+
+.dashboard-section p {
+  font-size: 1.2rem;
+  color: #666;
+}
+
+.axis-0-table {
+  width: 100%;
+  margin: 20px 0;
+  border-collapse: collapse;
+}
+
+.axis-0-table th,
+.axis-0-table td {
+  padding: 10px;
+  text-align: center;
+  border-bottom: 1px solid #ddd;
+  border-right: 1px solid #ddd; /* Add this line to separate columns */
+}
+
+.axis-0-table th {
+  background-color: #f2f2f2;
+  font-weight: bold;
+}
+
+.axis-0-table tbody th:nth-child(odd) {
+  background-color: #f9f9f9;
+  width:100%;
+}
+
+.axis-0-table tbody td:hover {
+  background-color: #e2e2e2;
+}
+
+.axis-1-table {
+  width: 100%;
+  margin: 20px 0;
+  border-collapse: collapse;
+}
+
+.axis-1-table th,
+.axis-1-table td {
+  padding: 10px;
+  text-align: center;
+  border-bottom: 10px solid #ddd;
+}
+
+.axis-1-table th {
+  background-color: #f2f2f2;
+  font-weight: bold;
+}
+
+.axis-1-table tbody tr:nth-child(odd) {
+  background-color: #f9f9f9;
+}
+
+.axis-1-table tbody tr:hover {
+  background-color: #e2e2e2;
+}
+.tables-row {
+  display:flex;
+  justify-content: space-between;
+}
+
+.date-picker {
+  display: flex;
+  align-items: center;
+  margin-bottom: 20px; /* Add spacing between Date Picker and other elements */
+}
+
+/* Style the label */
+.date-picker label {
+  margin-right: 10px; /* Add spacing between label and date picker */
+  font-weight: bold;
+}
+
+/* Style the date input */
+.date-picker input {
+  width: 150px; /* Adjust the input width as needed */
+  padding: 10px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  font-size: 1rem;
+}
+
+/* Style the calendar icon */
+.date-picker .react-datepicker__input-container svg {
+  fill: #007bff; /* Change the icon color to blue */
+  width: 20px; /* Adjust the icon size */
+  height: 20px;
+  margin-left: 10px; /* Add spacing between input and icon */
+}

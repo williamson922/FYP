@@ -34,6 +34,8 @@ Route::group(['middleware' => ['api']], function () {
 
 Route::post('/get-data/actual', [BMSDataController::class, 'getActualData'])->name('data.actual');
 Route::post('/get-data/predict', [BMSDataController::class, 'getPredictData'])->name('data.predict');
+Route::post('/get-historical-data/actual', [BMSDataController::class, 'getActualData'])->name('historical.actual');
+Route::post('/get-historical-data/predict', [BMSDataController::class, 'getPredictData'])->name('historical.predict');
 
 Route::get('/get-model-versions/{modelType}', [ModelVersionController::class, 'getModelVersions'])->name('model.versions');
 Route::post('set-model-version', [ModelVersionController::class, 'setModelVersion'])->name('model.set-version');

@@ -12,10 +12,26 @@
     <!-- Fonts -->
     <link rel="dns-prefetch" href="//fonts.bunny.net">
     <link href="https://fonts.bunny.net/css?family=Nunito" rel="stylesheet">
-    <link rel="stylesheet" href="{{asset('css/app.css')}}">
+    <style>
+
+main {
+  padding: 20px; 
+  border-radius: 4px; /* Add rounded corners for a container-like appearance */
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1); /* Add a subtle shadow for depth */
+  background-image: linear-gradient(45deg, #23e6e9, #92938f);
+}
+/* Add a subtle border at the bottom of the main element */
+main::after {
+  content: '';
+  display: block;
+  height: 1px;
+  background-color: #ccc;
+  margin-top: 20px; /* Spacing between content and border */
+}
+    </style>
     <!-- Scripts -->
     @viteReactRefresh
-    @vite(['resources/sass/app.scss', 'resources/js/app.js'])
+    @vite([ 'resources/js/app.js'])
 </head>
 <body>
     <div id="app">
@@ -76,7 +92,7 @@
             @yield('content')
         </main>
     </div>
-    <script src="{{ asset('js/app.js') }}"></script>
+    {{-- <script src="{{ asset('js/app.js') }}"></script> --}}
     <script src="https://js.pusher.com/7.0/pusher.min.js"></script>
 </body>
 </html>

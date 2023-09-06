@@ -36,4 +36,11 @@
   .no-data {
     font-style: italic;
   }
+  main {
+    background-color: #f4f4f4; /* Background color for the main content */
+    padding: 20px; /* Add padding to give content some spacing from the edges */
+    border-radius: 4px; /* Add rounded corners for a container-like appearance */
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1); /* Add a subtle shadow for depth */
+  }
+  
   

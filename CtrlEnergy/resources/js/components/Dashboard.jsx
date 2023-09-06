@@ -1,135 +1,280 @@
-import React, { useContext, useState, useEffect } from 'react';
-import ApexChart from './ApexChart';
-import DatePicker from 'react-datepicker'; // Import a date picker library
-import 'react-datepicker/dist/react-datepicker.css'; // Import date picker styles
-import {DataContext} from './DataProvider';
-import '../../css/dashboard.css';
+import React, { useContext, useState, useEffect } from "react";
+import ApexChart from "./ApexChart";
+import DatePicker from "react-datepicker"; // Import a date picker library
+import "react-datepicker/dist/react-datepicker.css"; // Import date picker styles
+import { DataContext } from "./DataProvider";
+import "../../css/dashboard.css";
 
 const Dashboard = () => {
-  const { actualData, predictedData,date,setDate} = useContext(DataContext);
-  const [totalEnergy,setTotalEnergy] = useState(0)
-  const [selectedDate, setSelectedDate] = useState(new Date());
-  const [mape, setMape] = useState(0); // State variable for MAPE
+    const {
+        predictedData,
+        date,
+        setDate,
+        historicalActualDataADay,
+        historicalPredictedDataADay,
+        historicalActualDataTwoDays,
+        historicalPredictedDataTwoDays,
+        mapeThreshold,
+    } = useContext(DataContext);
+    const [totalEnergyYesterday, setTotalEnergyYesterday] = useState(0);
+    const [totalEnergyPastTwoDays, setTotalEnergyPastTwoDays] = useState(0);
+    const [totalCostYesterday, setTotalCostYesterday] = useState(0);
+    const [totalCostPastTwoDays, setTotalCostPastTwoDays] = useState(0);
+    const [mapePastTwoDays, setMapePastTwoDays] = useState(0);
+    const [mapeYesterday, setMapeYesterday] = useState(0);
+    const [selectedDate, setSelectedDate] = useState(new Date());
 
-  // Calculate peak power consumption
-  const peakPowerEntry = actualData.length > 0 ? actualData.reduce((maxEntry, entry) => {
-    if (entry['Total Power'] > maxEntry['Total Power']) {
-      return entry;
-    }
-    return maxEntry;
-  }, actualData[0]) : null;
+    const yesterday = new Date(date);
+    yesterday.setDate(date.getDate() - 1);
+    const pastTwoDays = new Date(date);
+    pastTwoDays.setDate(date.getDate() - 2);
 
-  const calculateTotalEnergy = () => {
-    if (actualData.length > 0) {
-      let total = 0;
-      for (let entry of actualData) {
-        total += entry['Total Power'];
-      }
-      setTotalEnergy((total / 1000).toFixed(2));
-    } else {
-      setTotalEnergy(0); // Set to zero when no data available
-    }
-  };
-    // Calculate total energy whenever actualData changes
-    useEffect(() => {
-      calculateTotalEnergy();
-    }, [actualData]);
+    // Calculate peak power consumption
+    const peakPowerEntry =
+        historicalActualDataADay.length > 0
+            ? historicalActualDataADay.reduce((maxEntry, entry) => {
+                  if (entry["Total Power"] > maxEntry["Total Power"]) {
+                      return entry;
+                  }
+                  return maxEntry;
+              }, historicalActualDataADay[0])
+            : null;
 
-// Calculate MAPE
-useEffect(() => {
-  if (actualData.length > 0 && predictedData.length > 0) {
-    const commonLength = Math.min(actualData.length, predictedData.length);
+    const lowestPowerEntry =
+        historicalActualDataADay.length > 0
+            ? historicalActualDataADay.reduce((minEntry, entry) => {
+                  if (entry["Total Power"] < minEntry["Total Power"]) {
+                      return entry;
+                  }
+                  return entry;
+              })
+            : null;
 
-    const sumAPE = actualData.slice(0, commonLength).reduce((sum, actualEntry, index) => {
-      const predictedEntry = predictedData[index];
-      const absolutePercentageError = Math.abs(
-        (actualEntry['Total Power'] - predictedEntry['predicted power']) /
-        actualEntry['Total Power']
-      );
-      return sum + absolutePercentageError;
-    }, 0);
-
-    const meanAPE = sumAPE / commonLength;
-    const mapeValue = meanAPE * 100;
-    setMape(mapeValue);
-  }
-}, [actualData, predictedData]);
-    
-  const peakPower = peakPowerEntry ? peakPowerEntry['Total Power'] : 0;
-
-  // Find peak and lowest usage times
-  const peakUsageEntry = Array.isArray(actualData) && actualData.length > 0
-    ? actualData.reduce((maxEntry, entry) => {
-      if (entry['Total Power'] > maxEntry['Total Power']) {
-        return entry;
-      }
-      return maxEntry;
-    }, actualData[0])
-    : null;
-
-  const lowestUsageEntry = Array.isArray(actualData) && actualData.length > 0
-    ? actualData.reduce((minEntry, entry) => {
-      if (entry['Total Power'] < minEntry['Total Power']) {
-        return entry;
-      }
-      return minEntry;
-    }, actualData[0])
-    : null;
-  
-  const peakUsageTime = peakUsageEntry ? new Date(peakUsageEntry['Date/Time']).toLocaleTimeString() : 'No Peak Time ';
-  const lowestUsageTime = lowestUsageEntry ? new Date(lowestUsageEntry['Date/Time']).toLocaleTimeString() : 'No Lowest Time';
-
-  console.log('peakPower:', peakPower);
-  console.log('peakUsageTime:', peakUsageTime);
-  return (
-    <div className="dashboard">
-      <main className="dashboard-content">
-        {/* Date Picker */}
-    <div className="date-picker">
-      <label>Select Date: </label>
-      <DatePicker
-        selected={date}
-        onChange={(date) => setDate(date)}
-        dateFormat="yyyy-MM-dd"
-        maxDate={new Date()} // Optional: restrict selection to past dates
-      />
-    </div>
-        <div className="chart-section">
-          <h2>Energy Consumption Comparison</h2>
-          {actualData.length > 0 || predictedData.length > 0 ? (
-            <ApexChart dataType="total power" label="Power(kW)"/>
-          ) : (
-            <p><strong>No data available.</strong></p>
-          )}
-        </div>
-        <div className="data-sections">
-          <div className="dashboard-section">
-            <h2>Total Energy Consumption</h2>
-            <p>{totalEnergy} kWh</p>
-          </div>
-          <div className="dashboard-section">
-            <h2>Peak Power Consumption</h2>
-            <p>{peakPower.toFixed(2)} kW</p>
-          </div>
-          <div className="dashboard-section">
-            <h2>Peak Usage Time</h2>
-            <p>{peakUsageTime}</p>
-          </div>
-          <div className="dashboard-section">
-            <h2>Lowest Usage Time</h2>
-            <p>{lowestUsageTime}</p>
-          </div>
-          {/* Display the MAPE */}
-          <div className="dashboard-section">
-            <h2>Mean Absolute Percentage Error(MAPE)</h2>
-            <p>{mape.toFixed(2)}%</p>
-          </div>
-        </div>
-      </main>
-    </div>
-  );
-  
+    function calculateTotalEnergy(actualData) {
+        if (actualData.length > 0) {
+            let total = 0;
+            for (let entry of actualData) {
+                total += entry["Total Power"];
             }
+            return (total / 1000).toFixed(2);
+        } else {
+            return 0; // Set to zero when no data available
+        }
+    }
+
+    function calculateCost(totalEnergy){
+        let cost = totalEnergy * 0.365 
+        return cost.toFixed(2);
+    }
+
+    useEffect(() => {
+            setMapeYesterday(
+                calculateMAPE(
+                    historicalActualDataADay,
+                    historicalPredictedDataADay
+                )
+            );
+            setTotalEnergyYesterday(
+                calculateTotalEnergy(historicalActualDataADay)
+            );
+
+
+        setMapePastTwoDays(
+            calculateMAPE(
+                historicalActualDataTwoDays,
+                historicalPredictedDataTwoDays
+            )
+        );
+        setTotalEnergyPastTwoDays(
+            calculateTotalEnergy(historicalActualDataTwoDays)
+        );
+    }, [historicalActualDataADay, historicalActualDataTwoDays, date]);
+    useEffect(()=>{
+        setTotalCostYesterday(calculateCost(totalEnergyYesterday));
+        setTotalCostPastTwoDays(calculateCost(totalEnergyPastTwoDays));
+    },[totalEnergyYesterday, totalEnergyPastTwoDays])
+
+    function calculateMAPE(actualData, predictedData) {
+        if (actualData.length > 0 && predictedData.length > 0) {
+            if (actualData.length !== predictedData.length) {
+                throw new Error(
+                    "Actual and predicted data arrays must have the same length."
+                );
+            }
+
+            const n = actualData.length;
+
+            // Calculate the sum of absolute percentage errors
+            let sumAPE = 0;
+            for (let i = 0; i < n; i++) {
+                const actual = actualData[i]["Total Power"];
+                const predicted = predictedData[i]["predicted power"];
+                if (actual === 0) {
+                    // Handle division by zero, consider it as a perfect prediction
+                    sumAPE += 0;
+                } else {
+                    const ape = Math.abs((actual - predicted) / actual) * 100;
+                    sumAPE += ape;
+                }
+            }
+
+            // Calculate the mean APE
+            const meanAPE = sumAPE / n;
+
+            return meanAPE.toFixed(2);
+        } else {
+            return 0;
+        }
+    }
+
+    function evaluatePerformance(mape) {
+        // Define your criteria here, for example, a threshold of 10%
+        const threshold = mapeThreshold;
+    
+        if (mape <= threshold) {
+            return '✅'; // Good performance, return a tick
+        } else {
+            return '❌'; // Bad performance, return a cross
+        }
+    }
+
+    const peakPower = peakPowerEntry ? peakPowerEntry["Total Power"] : 0;
+    const lowestPower = lowestPowerEntry ? lowestPowerEntry["Total Power"] : 0;
+    // Find peak and lowest usage times
+    const peakUsageEntry =
+        Array.isArray(historicalActualDataADay) &&
+        historicalActualDataADay.length > 0
+            ? historicalActualDataADay.reduce((maxEntry, entry) => {
+                  if (entry["Total Power"] > maxEntry["Total Power"]) {
+                      return entry;
+                  }
+                  return maxEntry;
+              }, historicalActualDataADay[0])
+            : null;
+
+    const lowestUsageEntry =
+        Array.isArray(historicalActualDataADay) &&
+        historicalActualDataADay.length > 0
+            ? historicalActualDataADay.reduce((minEntry, entry) => {
+                  if (entry["Total Power"] < minEntry["Total Power"]) {
+                      return entry;
+                  }
+                  return minEntry;
+              }, historicalActualDataADay[0])
+            : null;
+
+    const peakUsageTime = peakUsageEntry
+        ? new Date(peakUsageEntry["Date/Time"]).toLocaleTimeString()
+        : "No Peak Time ";
+    const lowestUsageTime = lowestUsageEntry
+        ? new Date(lowestUsageEntry["Date/Time"]).toLocaleTimeString()
+        : "No Lowest Time";
+    console.log("peakPower:", peakPower);
+    console.log("peakUsageTime:", peakUsageTime);
+    return (
+        <div className="dashboard">
+            <main className="dashboard-content">
+                {/* Date Picker */}
+                <div className="date-picker">
+                    <label>Select Date: </label>
+                    <DatePicker
+                        selected={date}
+                        onChange={(date) => setDate(date)}
+                        dateFormat="yyyy-MM-dd"
+                        maxDate={new Date()} // Optional: restrict selection to past dates
+                    />
+                </div>
+                <div className="data-sections">
+                    {/* Historical Graph */}
+                    <div className="dashboard-section">
+                        <h2>Historical Graph</h2>
+                        {historicalActualDataADay.length > 0 ||
+                        historicalPredictedDataADay.length > 0 ? (
+                            <ApexChart
+                                dataType="historical total power"
+                                label="Power(kW)"
+                            />
+                        ) : (
+                            <p>
+                                <strong>No data available.</strong>
+                            </p>
+                        )}
+                    </div>
+                    {/* Predicted Graph */}
+                    <div className="dashboard-section">
+                        <h2>Predicted Graph</h2>
+                        {predictedData.length > 0 ? (
+                            <ApexChart
+                                dataType="total power"
+                                label="Power(kW)"
+                            />
+                        ) : (
+                            <p>
+                                <strong>No data available.</strong>
+                            </p>
+                        )}
+                    </div>
+                    <div className="tables-row">
+                    {/* Analysis Table */}
+                    <div className="dashboard-section">
+                        <h2>Analysis Table</h2>
+                        <table className="axis-1-table">
+                            <tbody>
+                                {Object.entries({
+                                    "Peak Usage Time": peakUsageTime,
+                                    "Peak Load": `${peakPower.toFixed(2)} kW`,
+                                    "Lowest Usage Time": lowestUsageTime,
+                                    "Lowest Load": `${lowestPower.toFixed(
+                                        2
+                                    )} kW`,
+                                }).map(([key, value]) => (
+                                    <tr key={key}>
+                                        <th>{key}</th>
+                                        <td>{value}</td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                    {/* Historical Table */}
+                    <div className="dashboard-section">
+                        <h2>Historical Table</h2>
+                        <table className="axis-0-table">
+                            <thead>
+                                <tr>
+                                    <th>Date</th>
+                                    <th>MAPE</th>
+                                    <th>Remarks</th>
+                                    <th>kWh</th>
+                                    <th>Cost</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td>{yesterday.toLocaleDateString()}</td>
+                                    <td>{mapeYesterday}%</td>
+                                    <td>{evaluatePerformance(mapeYesterday)}</td>
+                                    <td>{totalEnergyYesterday} kWh</td>
+                                    <td>
+                                        RM {totalCostYesterday}
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td>{pastTwoDays.toLocaleDateString()}</td>
+                                    <td>{mapePastTwoDays}%</td>
+                                    <td>
+                                        {evaluatePerformance(mapePastTwoDays)}
+                                    </td>
+                                    <td>{totalEnergyPastTwoDays} kWh</td>
+                                    <td>RM {totalCostPastTwoDays}</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    </div>
+                </div>
+            </main>
+        </div>
+    );
+};
 export default Dashboard;
-
-
