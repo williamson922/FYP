@@ -11,7 +11,7 @@ from werkzeug.utils import secure_filename
 import traceback
 import logging
 from sklearn.preprocessing import MinMaxScaler
-from datetime import datetime
+from datetime import datetime,timedelta
 import keras
 import re
 from sklearn import svm
@@ -92,13 +92,13 @@ def update_data(connection, cursor, data):
             """
         # Assuming 'data' contains the features and datetime value
         for _, row in data.iterrows():
-                update_data = (
-                    row['Voltage Ph-A Avg'], row['Voltage Ph-B Avg'], row['Voltage Ph-C Avg'],
-                    row['Current Ph-A Avg'], row['Current Ph-B Avg'], row['Current Ph-C Avg'],
-                    row['Power Factor Total'], row['Power Ph-A'], row['Power Ph-B'],
-                    row['Power Ph-C'], row['Total Power'],row['Unix Timestamp'], row['Date/Time']
-                )
-        cursor.execute(update_query, update_data)
+            update_data = (
+                row['Voltage Ph-A Avg'], row['Voltage Ph-B Avg'], row['Voltage Ph-C Avg'],
+                row['Current Ph-A Avg'], row['Current Ph-B Avg'], row['Current Ph-C Avg'],
+                row['Power Factor Total'], row['Power Ph-A'], row['Power Ph-B'],
+                row['Power Ph-C'], row['Total Power'],row['Unix Timestamp'], row['Date/Time']
+            )
+            cursor.execute(update_query, update_data)
         connection.commit()
     except Exception as e:
         connection.rollback()
@@ -116,18 +116,19 @@ def update_predicted_data(connection, cursor, data):
 
 def save_data_database(data, is_first=True, is_prediction=False):
     try:
+        # Create date range and insert initial data
+        datetime_start = data['Date/Time'].iloc[0]
+        print(datetime_start)
+        today = pd.date_range(datetime_start, periods=48, freq='30T')
+        formatted_dates = [dt.strftime('%Y-%m-%d %H:%M:%S') for dt in today]
         if not is_prediction:
             if is_first:
-                # Create date range and insert initial data
-                datetime_start = data['Date/Time'].iloc[0]
-                print(datetime_start)
-                today = pd.date_range(datetime_start, periods=48, freq='30T')
-                formatted_dates = [dt.strftime('%Y-%m-%d %H:%M:%S') for dt in today]
                 insert_initial_data(connection, cursor, formatted_dates)
                 
             # Update regular data
             update_data(connection, cursor, data)
         elif is_prediction:
+            insert_initial_data(connection, cursor, formatted_dates)
             update_predicted_data(connection, cursor, data)
     except Exception as e:
         connection.rollback()
@@ -200,12 +201,15 @@ def get_data_for_model(date):
         
     elif date.weekday() <5:
         query += "WHERE WEEKDAY(`Date/Time`) < 5 AND DATE(`Date/Time`) <> %s"
+        
+    # Add a condition to filter data where the date is not larger than the given date
+    query += " AND DATE(`Energy_Data`.`Date/Time`) <= %s"
  
         
     query += " ORDER BY `Energy_Data`.`Date/Time` DESC LIMIT 48"
     date = date.date()
     print(query)
-    cursor.execute(query, (date,))
+    cursor.execute(query, (date,date))
     data = cursor.fetchall()
     
     if len(data) >= 48:
@@ -345,11 +349,11 @@ def predict():
             # Get the last weekend's data from the database
             last_48_data = get_data_for_model(preprocessed_data["Date/Time"].iloc[0])
             historical_df = pd.DataFrame(last_48_data)
-            preprocessed_df=removeNegativeSign(historical_df)
+            historical_preprocessed_df=removeNegativeSign(historical_df)
             #Change the format of the date of actual preprocessed_data)
             preprocessed_data['Date/Time'] = pd.to_datetime(preprocessed_data['Date/Time']).dt.strftime("%d-%m-%Y %H:%M")
             # Use the predict_next_48_points method to make predictions
-            predictions_df = predict_next_48_points(model_to_use, preprocessed_df,preprocessed_data['Date/Time'])
+            predictions_df = predict_next_48_points(model_to_use, historical_preprocessed_df,preprocessed_data['Date/Time'])
             print( predictions_df)
             # Save the predicted data to the database
             save_data_database(predictions_df, is_prediction=True)
@@ -514,6 +518,71 @@ def get_training_data_for_date(date):
     except Exception as e:
         print("Error fetching training data for date:", e)
         return None
+    
+    # Define a function to remove units from a column
+def remove_units(column):
+    # Extract numeric part (assuming the numeric part is always at the beginning)
+    numeric_part = column.split(' ')[0]
+    return numeric_part
+
+@app.route('/api/file-upload', methods=['POST'])
+def file_upload():
+    try:
+        # Check if a file was sent in the request
+        if 'file' not in request.files:
+            return jsonify({'error': 'No file part'}), 400
+
+        file = request.files['file']
+        if file:
+            filename = file.filename
+
+            # Process the file here, for example, save it to a directory
+            file.save(f"uploads/{filename}")
+            df = pd.read_csv(f"uploads/{filename}", parse_dates=['Date/Time'], date_parser=lambda x: pd.to_datetime(x, format='%d/%m/%Y %I:%M:%S %p'))
+                # Remove units from specific columns
+            columns_to_clean = ['Voltage Ph-A Avg', 'Voltage Ph-B Avg', 'Voltage Ph-C Avg', 'Current Ph-A Avg', 'Current Ph-B Avg', 'Current Ph-C Avg','Power Factor Total']
+            for col in columns_to_clean:
+                df[col] = df[col].apply(remove_units)
+                df[col] = df[col].astype(float)
+
+                
+            historical_df = preprocess_data(df)
+            historical_df['Date/Time'] = pd.to_datetime(historical_df['Date/Time']).dt.strftime("%Y-%m-%d %H:%M:%S")
+            historical_df['Date/Time'] = pd.to_datetime(historical_df['Date/Time'])
+            save_data_database(historical_df)
+            save_data_database(historical_df,is_first=False)
+            # Convert the last date in historical_df to a datetime object
+            last_date = pd.to_datetime(historical_df['Date/Time'].iloc[0])
+            # Calculate the next day
+            next_day = last_date + timedelta(days=1)
+            # Create a new DataFrame with the next day as the starting point
+            next_day_df = pd.DataFrame({'Date/Time': pd.date_range(next_day, periods=48, freq='30T')})
+            # Format the 'Date/Time' column in next_day_df as required
+            next_day_df['Date/Time'] = next_day_df['Date/Time'].dt.strftime("%d-%m-%Y %H:%M")
+            next_date_for_get_data = pd.to_datetime(next_day_df['Date/Time'],format="%d-%m-%Y %H:%M")
+            # If the next day is not weekday, then take the previous weekend data
+            if is_holiday(next_date_for_get_data.iloc[0]) | next_day.weekday() >= 5:
+                model_version=load_version_by_date(next_date_for_get_data.iloc[0])
+                historical_data = get_data_for_model(next_date_for_get_data.iloc[0])
+                historical_df = pd.DataFrame(historical_data)
+                historical_df=removeNegativeSign(historical_df)
+                
+            elif next_day.weekday() < 5:
+                if last_date.weekday()== 0:
+                    historical_data = get_data_for_model(next_date_for_get_data.iloc[0])
+                    historical_df = pd.DataFrame(historical_data)
+                model_version=load_version_by_date(next_date_for_get_data.iloc[0])
+                historical_df=removeNegativeSign(historical_df)
+            
+            model = get_model(model_version)
+            prediction_df = predict_next_48_points(model,historical_df,next_day_df['Date/Time'])
+            save_data_database(prediction_df,is_prediction=True)
+            return jsonify({'message': 'File Uploaded and Processed'}), 200
+
+    except Exception as e:
+        traceback_str = traceback.format_exc()
+        print(traceback_str)
+        return jsonify({'error': 'An error occurred during file upload'}), 500
 
     
 if __name__ == "__main__":

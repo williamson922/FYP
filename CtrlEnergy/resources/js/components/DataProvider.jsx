@@ -17,7 +17,7 @@ const DataProvider = ({ children }) => {
     const [historicalPredictedDataADay, setHistoricalPredictedDataADay] = useState([]);    
     const [historicalActualDataTwoDays, setHistoricalActualDataTwoDays] = useState([]);
     const [historicalPredictedDataTwoDays, setHistoricalPredictedDataTwoDays] = useState([]);
-    const [mapeThreshold, setMapeThreshold] = useState(10);
+    const [mapeThreshold, setMapeThreshold] = useState(20);
     
      // Set a timeout to update isLoading to false if no data arrives within 10 seconds
   useEffect(() => {

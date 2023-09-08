@@ -130,3 +130,20 @@
   height: 20px;
   margin-left: 10px; /* Add spacing between input and icon */
 }
+
+
+.data-row {
+  display: flex;
+  align-items: center;
+  margin-top: 10px;
+}
+
+.data-label {
+  font-weight: bold;
+  margin-right: 10px;
+}
+
+.data-value {
+  font-size: 1.2em;
+  color: #007bff; /* You can choose your desired text color */
+}

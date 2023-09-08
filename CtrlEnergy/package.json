@@ -20,6 +20,7 @@
         "apexcharts": "^3.41.0",
         "date-fns-tz": "^2.0.0",
         "laravel-echo": "^1.15.2",
+        "papaparse": "^5.4.1",
         "pusher-js": "^8.3.0",
         "react-apexcharts": "^1.4.0",
         "react-datepicker": "^4.16.0",

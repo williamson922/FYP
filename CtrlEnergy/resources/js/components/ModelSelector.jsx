@@ -69,11 +69,11 @@ function ModelSelector() {
 
     return (
         <div className="container-setting">
-            <h2 className="heading">Select Model and Version</h2>
-            <div className="selectContainer">
-                <label className="label">Model Type:</label>
+            <h2 className="heading-container">Select Model and Version</h2>
+            <div className="selectContainer-container">
+                <label className="label-container">Model Type:</label>
                 <select
-                    className="select"
+                    className="select-container"
                     value={modelType}
                     onChange={handleModelTypeChange}
                 >
@@ -83,10 +83,10 @@ function ModelSelector() {
                     <option value="svr_holiday">SVR Holiday</option>
                 </select>
             </div>
-            <div className="selectContainer">
-                <label className="label">Version:</label>
+            <div className="selectContainer-container">
+                <label className="label-container">Version:</label>
                 <select
-                    className="select"
+                    className="select-container"
                     value={selectedVersion}
                     onChange={handleVersionChange}
                 >

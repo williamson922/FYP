@@ -55,12 +55,12 @@ const Main = () => {
               >
                 <i className="fas fa-cog"></i> Holiday Form
               </li>
-              {/* <li
+              <li
                 className={selectedNavItem === 'fileUpload' ? 'active' : ''}
                 onClick={() => handleNavItemSelect('fileUpload')}
               >
                 <i className="fas fa-cog"></i> Upload File
-              </li> */}
+              </li>
               <li
                 className={selectedNavItem === 'settings' ? 'active' : ''}
                 onClick={() => handleNavItemSelect('settings')}
@@ -89,7 +89,13 @@ const Main = () => {
               <HolidayForm />
             </div>
           )}
-          
+          {selectedNavItem === 'fileUpload' && (
+            <div>
+              <h2>File Upload</h2>
+              <p>Please upload the <b>.csv</b> file with <b>one day</b> data. </p><p>Which means <b>48 data points</b> and the <b>required columns</b> only '<b>Date/Time</b>','<b>Voltage Ph-A Avg</b>','<b>Voltage Ph-B Avg</b>','<b>Voltage Ph-C Avg</b>','<b>Current Ph-A Avg</b>','<b>Current Ph-B Avg</b>','<b>Current Ph-A Avg</b>', and '<b>Power Factor Total</b>'</p>
+              <FileUpload />
+            </div>
+          )}
           {selectedNavItem === 'settings' && (
             <div>
               {/* Render settings content */}

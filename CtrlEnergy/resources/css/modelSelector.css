@@ -7,23 +7,23 @@
   border-radius: 5px;
 }
 
-.heading {
+.heading-container {
   font-size: 1.5rem;
   margin-bottom: 20px;
   text-align: center;
 }
 
-.selectContainer {
+.selectContainer-container {
   margin-bottom: 15px;
 }
 
-.label {
+.label-container {
   display: block;
   margin-bottom: 5px;
   font-weight: bold;
 }
 
-.select {
+.select-container {
   width: 100%;
   padding: 10px;
   border: 1px solid #ccc;

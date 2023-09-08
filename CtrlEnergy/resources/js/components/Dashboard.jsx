@@ -54,7 +54,11 @@ const Dashboard = () => {
         if (actualData.length > 0) {
             let total = 0;
             for (let entry of actualData) {
-                total += entry["Total Power"];
+                if ("Total Power" in entry) {
+                    total += entry["Total Power"];
+                } else if ("predicted power" in entry) {
+                    total += entry["predicted power"];
+                }
             }
             return (total / 1000).toFixed(2);
         } else {
@@ -62,22 +66,16 @@ const Dashboard = () => {
         }
     }
 
-    function calculateCost(totalEnergy){
-        let cost = totalEnergy * 0.365 
+    function calculateCost(totalEnergy) {
+        let cost = totalEnergy * 0.365;
         return cost.toFixed(2);
     }
 
     useEffect(() => {
-            setMapeYesterday(
-                calculateMAPE(
-                    historicalActualDataADay,
-                    historicalPredictedDataADay
-                )
-            );
-            setTotalEnergyYesterday(
-                calculateTotalEnergy(historicalActualDataADay)
-            );
-
+        setMapeYesterday(
+            calculateMAPE(historicalActualDataADay, historicalPredictedDataADay)
+        );
+        setTotalEnergyYesterday(calculateTotalEnergy(historicalActualDataADay));
 
         setMapePastTwoDays(
             calculateMAPE(
@@ -89,10 +87,10 @@ const Dashboard = () => {
             calculateTotalEnergy(historicalActualDataTwoDays)
         );
     }, [historicalActualDataADay, historicalActualDataTwoDays, date]);
-    useEffect(()=>{
+    useEffect(() => {
         setTotalCostYesterday(calculateCost(totalEnergyYesterday));
         setTotalCostPastTwoDays(calculateCost(totalEnergyPastTwoDays));
-    },[totalEnergyYesterday, totalEnergyPastTwoDays])
+    }, [totalEnergyYesterday, totalEnergyPastTwoDays]);
 
     function calculateMAPE(actualData, predictedData) {
         if (actualData.length > 0 && predictedData.length > 0) {
@@ -130,11 +128,11 @@ const Dashboard = () => {
     function evaluatePerformance(mape) {
         // Define your criteria here, for example, a threshold of 10%
         const threshold = mapeThreshold;
-    
+
         if (mape <= threshold) {
-            return '✅'; // Good performance, return a tick
+            return "✅"; // Good performance, return a tick
         } else {
-            return '❌'; // Bad performance, return a cross
+            return "❌"; // Bad performance, return a cross
         }
     }
 
@@ -169,8 +167,7 @@ const Dashboard = () => {
     const lowestUsageTime = lowestUsageEntry
         ? new Date(lowestUsageEntry["Date/Time"]).toLocaleTimeString()
         : "No Lowest Time";
-    console.log("peakPower:", peakPower);
-    console.log("peakUsageTime:", peakUsageTime);
+
     return (
         <div className="dashboard">
             <main className="dashboard-content">
@@ -199,7 +196,35 @@ const Dashboard = () => {
                                 <strong>No data available.</strong>
                             </p>
                         )}
+                        {historicalActualDataADay.length > 0 && (
+                            <div className="data-row">
+                                <p className="data-label">
+                                    Historical Actual Data Total Energy Usage:{" "}
+                                </p>
+                                <p className="data-value">
+                                    {calculateTotalEnergy(
+                                        historicalActualDataADay
+                                    )}{" "}
+                                    kW
+                                </p>
+                            </div>
+                        )}
+                        {historicalPredictedDataADay.length > 0 && (
+                            <div className="data-row">
+                                <p className="data-label">
+                                    Historical Predicted Data Total Energy
+                                    Usage:{" "}
+                                </p>
+                                <p className="data-value">
+                                    {calculateTotalEnergy(
+                                        historicalPredictedDataADay
+                                    )}{" "}
+                                    kW
+                                </p>
+                            </div>
+                        )}
                     </div>
+
                     {/* Predicted Graph */}
                     <div className="dashboard-section">
                         <h2>Predicted Graph</h2>
@@ -213,64 +238,78 @@ const Dashboard = () => {
                                 <strong>No data available.</strong>
                             </p>
                         )}
+                        {predictedData.length > 0 && (
+                            <div className="data-row">
+                                <p className="data-label">
+                                    Predicted Data Total Energy Usage:{" "}
+                                </p>
+                                <p className="data-value">
+                                    {calculateTotalEnergy(predictedData)} kW
+                                </p>
+                            </div>
+                        )}
                     </div>
                     <div className="tables-row">
-                    {/* Analysis Table */}
-                    <div className="dashboard-section">
-                        <h2>Analysis Table</h2>
-                        <table className="axis-1-table">
-                            <tbody>
-                                {Object.entries({
-                                    "Peak Usage Time": peakUsageTime,
-                                    "Peak Load": `${peakPower.toFixed(2)} kW`,
-                                    "Lowest Usage Time": lowestUsageTime,
-                                    "Lowest Load": `${lowestPower.toFixed(
-                                        2
-                                    )} kW`,
-                                }).map(([key, value]) => (
-                                    <tr key={key}>
-                                        <th>{key}</th>
-                                        <td>{value}</td>
+                        {/* Analysis Table */}
+                        <div className="dashboard-section">
+                            <h2>Analysis Table</h2>
+                            <table className="axis-1-table">
+                                <tbody>
+                                    {Object.entries({
+                                        "Peak Usage Time": peakUsageTime,
+                                        "Peak Load": `${(peakPower/1000).toFixed(2)} kW`,
+                                        "Lowest Usage Time": lowestUsageTime,
+                                        "Lowest Load": `${(lowestPower/1000).toFixed(2)} kW`,
+                                    }).map(([key, value]) => (
+                                        <tr key={key}>
+                                            <th>{key}</th>
+                                            <td>{value}</td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                        {/* Historical Table */}
+                        <div className="dashboard-section">
+                            <h2>Historical Table</h2>
+                            <table className="axis-0-table">
+                                <thead>
+                                    <tr>
+                                        <th>Date</th>
+                                        <th>MAPE</th>
+                                        <th>Remarks</th>
+                                        <th>kWh</th>
+                                        <th>Cost</th>
                                     </tr>
-                                ))}
-                            </tbody>
-                        </table>
-                    </div>
-                    {/* Historical Table */}
-                    <div className="dashboard-section">
-                        <h2>Historical Table</h2>
-                        <table className="axis-0-table">
-                            <thead>
-                                <tr>
-                                    <th>Date</th>
-                                    <th>MAPE</th>
-                                    <th>Remarks</th>
-                                    <th>kWh</th>
-                                    <th>Cost</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <tr>
-                                    <td>{yesterday.toLocaleDateString()}</td>
-                                    <td>{mapeYesterday}%</td>
-                                    <td>{evaluatePerformance(mapeYesterday)}</td>
-                                    <td>{totalEnergyYesterday} kWh</td>
-                                    <td>
-                                        RM {totalCostYesterday}
-                                    </td>
-                                </tr>
-                                <tr>
-                                    <td>{pastTwoDays.toLocaleDateString()}</td>
-                                    <td>{mapePastTwoDays}%</td>
-                                    <td>
-                                        {evaluatePerformance(mapePastTwoDays)}
-                                    </td>
-                                    <td>{totalEnergyPastTwoDays} kWh</td>
-                                    <td>RM {totalCostPastTwoDays}</td>
-                                </tr>
-                            </tbody>
-                        </table>
-                    </div>
+                                </thead>
+                                <tbody>
+                                    <tr>
+                                        <td>
+                                            {yesterday.toLocaleDateString()}
+                                        </td>
+                                        <td>{mapeYesterday}%</td>
+                                        <td>
+                                            {evaluatePerformance(mapeYesterday)}
+                                        </td>
+                                        <td>{totalEnergyYesterday} kWh</td>
+                                        <td>RM {totalCostYesterday}</td>
+                                    </tr>
+                                    <tr>
+                                        <td>
+                                            {pastTwoDays.toLocaleDateString()}
+                                        </td>
+                                        <td>{mapePastTwoDays}%</td>
+                                        <td>
+                                            {evaluatePerformance(
+                                                mapePastTwoDays
+                                            )}
+                                        </td>
+                                        <td>{totalEnergyPastTwoDays} kWh</td>
+                                        <td>RM {totalCostPastTwoDays}</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
                     </div>
                 </div>
             </main>

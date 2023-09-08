@@ -1,5 +1,5 @@
 /* holidayForm.css */
-.holiday-form {
+.holiday-form-container {
   background-color: #fff;
   padding: 1rem;
   border: 1px solid #ddd;
@@ -7,28 +7,28 @@
   box-shadow: 0px 2px 4px rgba(0, 0, 0, 0.1);
 }
 
-.holiday-form h2 {
+.holiday-form-heading {
   margin-bottom: 1rem;
   font-size: 1.5rem;
 }
 
-.form-group {
+.form-group-container {
   margin-bottom: 1rem;
 }
 
-.form-group label {
+.form-group-label {
   display: block;
   margin-bottom: 0.5rem;
 }
 
-.form-control {
+.form-control-container {
   width: 100%;
   padding: 0.5rem;
   border: 1px solid #ddd;
   border-radius: 4px;
 }
 
-.btn {
+.btn-container {
   background-color: #007bff;
   color: #fff;
   border: none;
@@ -38,17 +38,17 @@
   transition: background-color 0.3s ease-in-out;
 }
 
-.btn:hover {
+.btn-container:hover {
   background-color: #0056b3;
 }
 
-.holiday-list {
+.holiday-list-container {
   list-style-type: none;
   padding: 0;
   margin-top: 1rem;
 }
 
-.holiday-list li {
+.holiday-list-item {
   display: flex;
   justify-content: space-between;
   align-items: center;

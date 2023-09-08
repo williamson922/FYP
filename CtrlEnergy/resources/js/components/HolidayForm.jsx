@@ -59,30 +59,30 @@ const HolidayForm = () => {
   };
 
   return (
-    <div className="holiday-form">
-      <h2>Add Holiday Date</h2>
+    <div className="holiday-form-container">
+      <h2 className="holiday-form-heading">Add Holiday Date</h2>
       <form onSubmit={handleSubmit}>
-        <div className="form-group">
-          <label htmlFor="holiday-date">Holiday Date:</label>
+        <div className="form-group-container">
+          <label htmlFor="holiday-date" className="form-group-label">Holiday Date:</label>
           <input
             type="date"
             id="holiday-date"
-            className="form-control"
+            className="form-control-container"
             value={holidayDate}
             name="date"
             onChange={handleHolidayDateChange}
           />
         </div>
-        <button type="submit" className="btn btn-primary">Add</button>
+        <button type="submit" className="btn btn-primary btn-container">Add</button>
       </form>
       <div>
         <h2>Holidays</h2>
         {holidays.length > 0 ? (
-          <ul className="holiday-list">
+          <ul className="holiday-list-container">
             {holidays.map((holiday) => (
-              <li key={holiday.id}>
+              <li className="holiday-list-item" key={holiday.id}>
                 {holiday.date}
-                <button onClick={() => handleDelete(holiday.date)} className="btn btn-danger">Delete</button>
+                <button onClick={() => handleDelete(holiday.date)} className="btn btn-danger btn-container">Delete</button>
               </li>
             ))}
           </ul>
