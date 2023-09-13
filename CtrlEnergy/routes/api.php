@@ -25,20 +25,13 @@ use App\Http\Controllers\HolidayController;
 header('Access-Control-Allow-Origin:  *');
 header('Access-Control-Allow-Methods:  POST, GET, OPTIONS, PUT, DELETE');
 header('Access-Control-Allow-Headers:  Content-Type, X-Auth-Token, Origin, Authorization');
-Route::group(['middleware' => ['api']], function () {
-    Route::post('/bms-data', [BMSDataController::class, 'receiveDataFromBMSAndSendToAPI']);
-    Route::get('/api-data', [BMSDataController::class, 'receiveDataFromAPIAndSendToWeb']);
-    // Route::match(['GET', 'POST'], '/bms-data', [BMSDataController::class, 'receiveData']);
-
-});
+Route::post('/bms-data', [BMSDataController::class, 'receiveDataFromBMSAndSendToAPI']);
 
 Route::post('/get-data/actual', [BMSDataController::class, 'getActualData'])->name('data.actual');
 Route::post('/get-data/predict', [BMSDataController::class, 'getPredictData'])->name('data.predict');
-Route::post('/get-historical-data/actual', [BMSDataController::class, 'getActualData'])->name('historical.actual');
-Route::post('/get-historical-data/predict', [BMSDataController::class, 'getPredictData'])->name('historical.predict');
 
 Route::get('/get-model-versions/{modelType}', [ModelVersionController::class, 'getModelVersions'])->name('model.versions');
-Route::post('set-model-version', [ModelVersionController::class, 'setModelVersion'])->name('model.set-version');
+Route::post('/set-model-version', [ModelVersionController::class, 'setModelVersion'])->name('model.set-version');
 
 Route::post('/set-holiday', [HolidayController::class, 'create'])->name('holiday.insert');
 Route::post('/holiday', [HolidayController::class, 'destroy'])->name('holiday.delete');

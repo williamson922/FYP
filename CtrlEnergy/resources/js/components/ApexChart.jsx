@@ -14,8 +14,9 @@ const ApexChart = ({ dataType, label }) => {
     // Initialize chartTitle and chartSeries as state variables
     const [chartTitle, setChartTitle] = useState("");
     const [chartSeries, setChartSeries] = useState([]);
+    const dataToUse = historicalActualDataADay.length > 0 ? historicalActualDataADay : (historicalPredictedDataADay.length > 0 ? historicalPredictedDataADay : predictedData);
     // Format the x-axis labels to show only the hour
-    const xAxisLabelsFormatted = predictedData.map((entry) => {
+    const xAxisLabelsFormatted = dataToUse.map((entry) => {
         const dateTime = entry["Date/Time"];
         if (dateTime) {
             return new Date(dateTime).toLocaleTimeString([], {

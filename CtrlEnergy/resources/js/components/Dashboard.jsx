@@ -184,7 +184,7 @@ const Dashboard = () => {
                 <div className="data-sections">
                     {/* Historical Graph */}
                     <div className="dashboard-section">
-                        <h2>Historical Graph</h2>
+                        <h2>Historical Load Profile -- {yesterday.toLocaleDateString()}</h2>
                         {historicalActualDataADay.length > 0 ||
                         historicalPredictedDataADay.length > 0 ? (
                             <ApexChart
@@ -224,10 +224,28 @@ const Dashboard = () => {
                             </div>
                         )}
                     </div>
-
+                     {/* Analysis Table */}
+                     <div className="dashboard-section">
+                            <h2>Energy Dashboard - {yesterday.toLocaleDateString()}</h2>
+                            <table className="axis-1-table">
+                                <tbody>
+                                    {Object.entries({
+                                        "Peak Usage Time": peakUsageTime,
+                                        "Peak Load": `${(peakPower/1000).toFixed(2)} kW`,
+                                        "Lowest Usage Time": lowestUsageTime,
+                                        "Lowest Load": `${(lowestPower/1000).toFixed(2)} kW`,
+                                    }).map(([key, value]) => (
+                                        <tr key={key}>
+                                            <th>{key}</th>
+                                            <td>{value}</td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>                    
                     {/* Predicted Graph */}
                     <div className="dashboard-section">
-                        <h2>Predicted Graph</h2>
+                        <h2>Predicted Graph - {date.toLocaleDateString()}</h2>
                         {predictedData.length > 0 ? (
                             <ApexChart
                                 dataType="total power"
@@ -250,25 +268,6 @@ const Dashboard = () => {
                         )}
                     </div>
                     <div className="tables-row">
-                        {/* Analysis Table */}
-                        <div className="dashboard-section">
-                            <h2>Analysis Table</h2>
-                            <table className="axis-1-table">
-                                <tbody>
-                                    {Object.entries({
-                                        "Peak Usage Time": peakUsageTime,
-                                        "Peak Load": `${(peakPower/1000).toFixed(2)} kW`,
-                                        "Lowest Usage Time": lowestUsageTime,
-                                        "Lowest Load": `${(lowestPower/1000).toFixed(2)} kW`,
-                                    }).map(([key, value]) => (
-                                        <tr key={key}>
-                                            <th>{key}</th>
-                                            <td>{value}</td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
-                        </div>
                         {/* Historical Table */}
                         <div className="dashboard-section">
                             <h2>Historical Table</h2>

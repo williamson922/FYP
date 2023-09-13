@@ -20,13 +20,11 @@ class BMSDataController extends Controller
         $data = $request->all();
         $validatedData = $this->validateAndConvertNumericData($data);
         $jsonData = ['data' => $validatedData]; // The data is already an array
-        Log::debug($validatedData);
         // Make the HTTP POST request to the prediction API
         $response = Http::asJson()->post('http://localhost:5000/api/predict', $jsonData);
         // Check if the request was successful
         if ($response->successful()) {
             $apiData = $response->json();
-            // ReceiveAPIData::dispatch($apiData)->afterCommit();
             event(new receiveAPIDataEvent($apiData));
             return response()->json(["message" => "Data received successfully and processed successfully"]);
         } else {

@@ -1,19 +1,13 @@
 # api.py
-import os
-from flask import Flask, request, jsonify, send_file
+from flask import Flask, request, jsonify
 from flask_cors import CORS
 import pandas as pd
 import numpy as np
-import tensorflow as tf
 import joblib
-from tensorflow.keras.models import load_model
-from werkzeug.utils import secure_filename
 import traceback
 import logging
-from sklearn.preprocessing import MinMaxScaler
 from datetime import datetime,timedelta
 import keras
-import re
 from sklearn import svm
 from db_connector import get_database_connection
 from model_manager import load_lstm_model, load_svr_model
@@ -42,7 +36,6 @@ def get_model(model_version):
     return model
         
 def load_version_by_date(date):
-    print("in load version by date:",date)
     if is_holiday(date):
         query = "SELECT * FROM model_versions WHERE model_type = 'svr_holiday' AND is_selected = 1"
     elif date.weekday() < 5:
@@ -51,7 +44,7 @@ def load_version_by_date(date):
         query = "SELECT * FROM model_versions WHERE model_type = 'svr_weekend' AND is_selected = 1"
     
     cursor.execute(query)
-    model_version = cursor.fetchone()  # Use fetchone() instead of fetch()
+    model_version = cursor.fetchone() 
     return model_version
         
 def insert_initial_data(connection, cursor, formatted_dates):
@@ -118,7 +111,6 @@ def save_data_database(data, is_first=True, is_prediction=False):
     try:
         # Create date range and insert initial data
         datetime_start = data['Date/Time'].iloc[0]
-        print(datetime_start)
         today = pd.date_range(datetime_start, periods=48, freq='30T')
         formatted_dates = [dt.strftime('%Y-%m-%d %H:%M:%S') for dt in today]
         if not is_prediction:
@@ -169,7 +161,6 @@ def preprocess_data(data, method='locf'):
     except Exception as e:
         raise ValueError("Error preprocessing data: " + str(e))
 
-
 def add_features(data):
     data['Power Ph-A'] = data['Voltage Ph-A Avg'] * \
         data['Current Ph-A Avg'] * abs(data['Power Factor Total'])
@@ -183,16 +174,13 @@ def add_features(data):
 
 def get_data_for_model(date):
     column_features = ["Date/Time", "Voltage Ph-A Avg", "Voltage Ph-B Avg", "Voltage Ph-C Avg", "Current Ph-A Avg", "Current Ph-B Avg", "Current Ph-C Avg"
-                     ,"Power Factor Total","Power Ph-A","Power Ph-B","Power Ph-C", "Total Power","Unix Timestamp"]
-    print("in get_data_for_model:", date, date.weekday())
-    
+                     ,"Power Factor Total","Power Ph-A","Power Ph-B","Power Ph-C", "Total Power","Unix Timestamp"]    
     query = """
     SELECT `Date/Time`, `Voltage Ph-A Avg`, `Voltage Ph-B Avg`, `Voltage Ph-C Avg`,
            `Current Ph-A Avg`, `Current Ph-B Avg`, `Current Ph-C Avg`, `Power Factor Total`,
            `Power Ph-A`, `Power Ph-B`, `Power Ph-C`, `Total Power`, `Unix Timestamp`
     FROM Energy_Data 
-    """
-    
+    """    
     if is_holiday(date):
         query += """INNER JOIN holidays ON Date(`Energy_Data`.`Date/Time`) = `holidays`.`date` WHERE DATE(`Energy_Data`.`Date/Time`) <> %s"""
     
@@ -208,7 +196,6 @@ def get_data_for_model(date):
         
     query += " ORDER BY `Energy_Data`.`Date/Time` DESC LIMIT 48"
     date = date.date()
-    print(query)
     cursor.execute(query, (date,date))
     data = cursor.fetchall()
     
@@ -224,18 +211,14 @@ def removeNegativeSign(data):
     return data
     
 def predict_next_48_points(model, historical_data, datetime, look_back=48):
-    print("In predict_next_48_points:",historical_data[['Date/Time','Power Factor Total']])
     # Extract the last date in the historical_data to create the datetime index for predictions
     historical_data = historical_data.drop(columns=['Date/Time', 'Total Power'])
-
     # Use the last 'look_back' data points from the historical_data as the seed for prediction
     seed_data = historical_data[-look_back:]
     # Initialize an empty list to store the predicted data points
     predicted_array = []
-
     # Generate the datetime index for the next 48 data points (1 day ahead)
     today = pd.date_range(datetime.iloc[0], periods=48, freq='30T').strftime('%d-%m-%Y %H:%M')
-
     # Call the appropriate prediction method based on the model type
     if isinstance(model, keras.models.Sequential):
         scaler_x_path = './scaler/LSTM/lstm_scaler_x.pkl'
@@ -247,7 +230,6 @@ def predict_next_48_points(model, historical_data, datetime, look_back=48):
         predicted_array = predict_svr_model(model, seed_data, scaler_x_path, scaler_y_path)
     else:
         raise ValueError('Invalid model type: %s', model)
-
     # Convert the list of predicted data points into a numpy array
     predicted_array = np.array(predicted_array)
     if len(predicted_array) == len(today):
@@ -255,7 +237,6 @@ def predict_next_48_points(model, historical_data, datetime, look_back=48):
         predicted_df = pd.DataFrame({"Date/Time": today, "Predicted Load": predicted_array})
     else:
         raise ValueError("Length of predicted_array does not match length of today")
-
     return predicted_df
 
 def predict_lstm_model(model, seed_data, scaler_x_path, scaler_y_path):
@@ -299,8 +280,6 @@ def predict_svr_model(model, seed_data, scaler_x_path, scaler_y_path):
 @app.route("/api/predict", methods=["POST"])
 def predict():
     try:
-        print("Received request data:", request.get_json())  # Add this line for debug logging
-
         json_data = request.get_json()
         if json_data is None:
             return jsonify({"error": "Invalid JSON data"}), 400
@@ -309,21 +288,17 @@ def predict():
         input_data = json_data.get("data")
         if input_data is None or not isinstance(input_data, list) or len(input_data) == 0:
             return jsonify({"error": "Invalid JSON data"}), 400
-        print(input_data)
         if len(input_data) > 0 :
             # Convert 'Date/Time' to proper datetime format
             for entry in input_data:
                 entry['Date/Time'] = datetime.strptime(entry['Date/Time'], "%d/%m/%Y %I:%M:%S %p").strftime("%Y-%m-%d %H:%M:%S")
         # 'data' key exists and is not empty
             data = pd.DataFrame(input_data,columns=required_features)
-            print(data['Date/Time'])
         else:
             # Return a response or error message as needed
             return jsonify({"error": "No data"}), 500
-        print("DF:", data)
         # Preprocess the data
         preprocessed_data = preprocess_data(data)
-        print('Preprocessed data:', preprocessed_data)
         # Extract the date from the timestamp and convert to datetime object
         preprocessed_data["Date/Time"] = pd.to_datetime(preprocessed_data["Date/Time"])
         first_data = True
@@ -344,8 +319,6 @@ def predict():
                 model_to_use = get_model(model_version)
             else:
                return jsonify({"error": "Missing model"}), 400
-        
-            
             # Get the last weekend's data from the database
             last_48_data = get_data_for_model(preprocessed_data["Date/Time"].iloc[0])
             historical_df = pd.DataFrame(last_48_data)
@@ -354,18 +327,14 @@ def predict():
             preprocessed_data['Date/Time'] = pd.to_datetime(preprocessed_data['Date/Time']).dt.strftime("%d-%m-%Y %H:%M")
             # Use the predict_next_48_points method to make predictions
             predictions_df = predict_next_48_points(model_to_use, historical_preprocessed_df,preprocessed_data['Date/Time'])
-            print( predictions_df)
             # Save the predicted data to the database
             save_data_database(predictions_df, is_prediction=True)
-
             # Convert the preprocessed data to dictionary format
             actual_data_records = preprocessed_data.drop(columns=['predicted power']).to_dict(orient='records')
-            print( actual_data_records)
             # Construct the JSON response with predicted and actual data
             response_data = {
                 "actual_data": actual_data_records,
             }
-
             # Return the JSON response with a 200 status code
             return jsonify(response_data), 200
         else:
@@ -390,8 +359,6 @@ def model_training():
         dynamic_version = get_dynamic_version()
         model=get_model(model_version)
         message = ""
-        print(model)
-        print(parsed_date)
             # Call the appropriate prediction method based on the model type
         if isinstance(model, keras.models.Sequential):
             data = get_training_data_for_date(parsed_date)
@@ -410,7 +377,6 @@ def model_training():
                 
         else:
             raise ValueError('Invalid model type: %s', model)
-        print("Message:",message)
         return jsonify({"message": message})
     except Exception as e:
         # Log the full traceback
@@ -427,28 +393,18 @@ def training_lstm_model(model, data, scaler_x_path, scaler_y_path, version):
         # Load scalers
         scaler_x = joblib.load(scaler_x_path)
         scaler_y = joblib.load(scaler_y_path)
-        print(scaler_x, scaler_y)
         # Preprocess data
         X_data = data.drop(columns=['Date/Time', 'Total Power'])
         y = data['Total Power']
         X_scaled = scaler_x.transform(X_data)
-        print("X_scaled:", X_scaled)
         y_reshaped = y.values.reshape(-1, 1)
         y_scaled = scaler_y.transform(y_reshaped)
-        print("y_scaled:", y_scaled)
- 
         X_reshaped = X_scaled.reshape(-1, 1, X_data.shape[1])
-        
-        print("X_reshaped:", X_reshaped)
-        print("y_reshaped:", y_reshaped)
-        
         # Train the model
         model.fit(X_reshaped, y_scaled)
-        
         # Save the trained model with the dynamic version
         model_path = f"models/LSTM/{version}_lstm.keras"
         model.save(model_path)
-        
         # Save the model version into the database
         save_model_version("lstm", version)
         
@@ -497,7 +453,6 @@ def updated_model_version(model_type,version):
         
         update_query = "UPDATE model_versions SET is_selected = 1 WHERE model_type = %s AND version = %s"
         cursor.execute(update_query,(model_type,version))
-        print("Selected model updated successfully")
         
     except Exception as e:
         print("Error updating selected model")
@@ -568,12 +523,11 @@ def file_upload():
                 historical_df=removeNegativeSign(historical_df)
                 
             elif next_day.weekday() < 5:
-                if last_date.weekday()== 0:
+                if last_date.weekday()== 6 | is_holiday(last_date):
                     historical_data = get_data_for_model(next_date_for_get_data.iloc[0])
                     historical_df = pd.DataFrame(historical_data)
                 model_version=load_version_by_date(next_date_for_get_data.iloc[0])
                 historical_df=removeNegativeSign(historical_df)
-            
             model = get_model(model_version)
             prediction_df = predict_next_48_points(model,historical_df,next_day_df['Date/Time'])
             save_data_database(prediction_df,is_prediction=True)

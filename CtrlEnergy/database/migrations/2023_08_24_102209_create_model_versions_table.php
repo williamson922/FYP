@@ -22,7 +22,7 @@ class CreateModelVersionsTable extends Migration
             ['model_type' => 'lstm', 'version' => 'default', 'is_selected' => 1],
             ['model_type' => 'svr_weekend', 'version' => 'default', 'is_selected' => 1],
             ['model_type' => 'svr_holiday', 'version' => 'default', 'is_selected' => 1],
-            // Add more default versions for other model types
+
         ]);
     }
 

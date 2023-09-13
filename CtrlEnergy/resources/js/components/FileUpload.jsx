@@ -17,10 +17,6 @@ const FileUpload = () => {
                 if (fileExtension === 'csv') {
                     console.log(selectedFile)
                     formData.append('file', selectedFile);
-
-                    // Append a dummy value with a key
-                    formData.append('dummyKey', 'dummyValue');
-
                     uploadFile(formData);
                 } else {
                     alert('Unsupported file format. Please upload a CSV file.');

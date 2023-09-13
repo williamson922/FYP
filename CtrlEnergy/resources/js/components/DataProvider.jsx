@@ -59,10 +59,10 @@ useEffect(() => {
   Promise.all([
     // axios.post('/api/get-data/actual', { 'Date/Time': formattedCutoffTime }),
     axios.post('/api/get-data/predict', { 'Date/Time': formattedCutoffTime }),
-    axios.post('/api/get-historical-data/actual', { 'Date/Time': formattedCutoffTimeMinusOneDay}),
-    axios.post('/api/get-historical-data/predict', { 'Date/Time': formattedCutoffTimeMinusOneDay }),
-    axios.post('/api/get-historical-data/actual', { 'Date/Time': formattedCutoffTimeMinusTwoDays}),
-    axios.post('/api/get-historical-data/predict', { 'Date/Time': formattedCutoffTimeMinusTwoDays }),
+    axios.post('/api/get-data/actual', { 'Date/Time': formattedCutoffTimeMinusOneDay}),
+    axios.post('/api/get-data/predict', { 'Date/Time': formattedCutoffTimeMinusOneDay }),
+    axios.post('/api/get-data/actual', { 'Date/Time': formattedCutoffTimeMinusTwoDays}),
+    axios.post('/api/get-data/predict', { 'Date/Time': formattedCutoffTimeMinusTwoDays }),
   ])
     .then(([predicted_data_response,
       historical_actual_data_response_a_day,
